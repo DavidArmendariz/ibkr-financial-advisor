@@ -48,7 +48,9 @@ def disconnect() -> None:
 
 
 def get_status() -> dict:
-    connected = ibkr.isConnected()
+    # ib_insync reports connected before connectAsync() finishes its initial
+    # sync; only report it once connect() has recorded the port.
+    connected = ibkr.isConnected() and _connected_port is not None
     port = _connected_port if connected else None
     settings = get_settings()
     mode = {settings.ibkr_paper_port: "paper", settings.ibkr_live_port: "live"}.get(port)

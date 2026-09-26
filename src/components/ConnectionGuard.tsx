@@ -62,7 +62,7 @@ export function ConnectionGuard({ status, loading, error, autoConnect, onConnect
             </div>
             {autoConnect && (
               <p className="text-center text-xs text-muted-foreground">
-                Retrying automatically every 10 seconds
+                Retrying Paper (7497) automatically every 10 seconds
               </p>
             )}
           </div>

@@ -20,8 +20,8 @@ Built with Electron + React on the frontend and a Python FastAPI backend — eve
 - Session sidebar: create, switch between, and delete conversations
 
 **TWS Connection Guard**
-- On launch, auto-connects to TWS / IB Gateway on `127.0.0.1:7497` (paper) or `7496` (live), connecting read-only
-- While disconnected, shows a lock screen with setup instructions and keeps retrying every 10 seconds, so the app connects on its own once TWS is started (or logs back in after its daily restart)
+- On launch, auto-connects to a **paper** TWS / IB Gateway session on `127.0.0.1:7497`, connecting read-only. Live (`7496`) is never connected automatically; use the **Live** button on the lock screen
+- While disconnected, shows a lock screen with setup instructions and keeps retrying paper every 10 seconds, so the app connects on its own once TWS is started (or logs back in after its daily restart)
 - Live connection indicator and Net Liquidation Value always visible in the sidebar footer
 
 ---
@@ -277,7 +277,7 @@ Error frame: `{ "type": "error", "content": "…" }`
 
 ## Notes
 
-- **Paper vs Live** — the app defaults to auto-connect (paper first). Paper trading port is `7497`, live is `7496`. Never use live credentials for testing.
+- **Paper vs Live** — the app only auto-connects to paper (`7497`). Connecting to live (`7496`) always takes an explicit click. Never use live credentials for testing.
 - **API key security** — `ANTHROPIC_API_KEY` lives in `.env` and is only read by the local Python process. The Settings screen can write a new key, but the backend never sends a stored key back to the renderer.
 - **No data leaves your machine** — all portfolio data, chat history, and AI context are processed and stored locally.
 - **Multiple IB clients** — if another app (e.g. the TWS API demo) is connected with `clientId=1`, change `IBKR_CLIENT_ID` in `.env` to avoid conflicts.

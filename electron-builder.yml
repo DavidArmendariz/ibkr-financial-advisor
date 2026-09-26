@@ -1,0 +1,38 @@
+appId: com.ibkr.financial-advisor
+productName: IBKR Financial Advisor
+
+directories:
+  output: dist-electron
+  buildResources: assets
+
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+
+mac:
+  category: public.app-category.finance
+  darkModeSupport: true
+  target:
+    - target: dmg
+      arch:
+        - universal
+  icon: assets/icon.icns
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: assets/entitlements.mac.plist
+  entitlementsInherit: assets/entitlements.mac.plist
+
+dmg:
+  title: "IBKR Financial Advisor"
+  backgroundColor: "#0a0a0a"
+
+extraResources:
+  - from: backend-dist/
+    to: backend
+    filter:
+      - "**/*"
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

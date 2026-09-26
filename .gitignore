@@ -1,0 +1,34 @@
+# Node
+node_modules/
+dist/
+dist-electron/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+*.egg-info/
+.eggs/
+backend-dist/
+
+# Env
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# macOS
+.DS_Store
+*.dmg
+*.app
+
+# Logs
+*.log
+npm-debug.log*

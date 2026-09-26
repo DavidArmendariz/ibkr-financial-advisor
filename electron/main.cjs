@@ -4,13 +4,14 @@ const { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } = require('e
 const fs = require('fs')
 const path = require('path')
 const { pathToFileURL } = require('url')
-const { spawn } = require('child_process')
+const { spawn, spawnSync } = require('child_process')
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 
 const BACKEND_PORT = 8000
 const BACKEND_HEALTH_URL = `http://127.0.0.1:${BACKEND_PORT}/api/health`
 const BACKEND_STARTUP_TIMEOUT_MS = 30_000
+const BACKEND_STOP_TIMEOUT_MS = 5_000
 
 // The packaged renderer is served from app://bundle/ rather than file:// so it
 // has a real origin ("app://bundle") that the backend's CORS policy can allow.
@@ -59,6 +60,36 @@ function prepareDataDir() {
   return dataDir
 }
 
+// PyInstaller --onefile runs as a bootloader plus a child Python process, so the
+// backend is spawned as its own process group and signalled as a group.
+function signalBackend(pid, signal) {
+  try {
+    process.kill(process.platform === 'win32' ? pid : -pid, signal)
+  } catch {
+    // already gone
+  }
+}
+
+function backendPidFile() {
+  return path.join(app.getPath('userData'), 'backend.pid')
+}
+
+// A previous run that crashed or was force-quit can leave its backend holding the port.
+function killStaleBackend(backendPath) {
+  if (process.platform === 'win32') return
+  let pid
+  try {
+    pid = Number(fs.readFileSync(backendPidFile(), 'utf8'))
+  } catch {
+    return
+  }
+  fs.rmSync(backendPidFile(), { force: true })
+  if (!pid) return
+  // Guard against PID reuse: only kill it if that PID is still our backend binary.
+  const { stdout } = spawnSync('ps', ['-o', 'command=', '-p', String(pid)], { encoding: 'utf8' })
+  if (stdout && stdout.includes(backendPath)) signalBackend(pid, 'SIGKILL')
+}
+
 function startBackend() {
   if (isDev) {
     // In dev mode the backend is started by `npm run dev:backend`
@@ -70,10 +101,15 @@ function startBackend() {
   const binaryName = process.platform === 'win32' ? 'server.exe' : 'server'
   const backendPath = path.join(process.resourcesPath, 'backend', binaryName)
 
+  const dataDir = prepareDataDir()
+  killStaleBackend(backendPath)
+
   backendProcess = spawn(backendPath, [], {
-    cwd: prepareDataDir(),
+    cwd: dataDir,
     env: { ...process.env, BACKEND_PORT: String(BACKEND_PORT) },
+    detached: process.platform !== 'win32', // own process group, see signalBackend
   })
+  if (backendProcess.pid) fs.writeFileSync(backendPidFile(), String(backendProcess.pid))
 
   backendProcess.stdout.on('data', (d) => console.log('[backend]', d.toString()))
   backendProcess.stderr.on('data', (d) => console.error('[backend]', d.toString()))
@@ -89,11 +125,20 @@ function startBackend() {
   })
 }
 
+// Ask the backend to shut down, and force-kill it if it hasn't exited in time.
 function stopBackend() {
-  if (backendProcess) {
-    backendProcess.kill()
-    backendProcess = null
-  }
+  const proc = backendProcess
+  backendProcess = null
+  if (!proc || !proc.pid) return Promise.resolve()
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => signalBackend(proc.pid, 'SIGKILL'), BACKEND_STOP_TIMEOUT_MS)
+    proc.once('exit', () => {
+      clearTimeout(timer)
+      fs.rmSync(backendPidFile(), { force: true })
+      resolve()
+    })
+    signalBackend(proc.pid, 'SIGTERM')
+  })
 }
 
 async function waitForBackend() {
@@ -147,12 +192,12 @@ app.whenReady().then(async () => {
   startBackend()
 
   if (!isDev && !(await waitForBackend())) {
+    // Quit while starting up: before-quit is already stopping the backend.
+    if (isQuitting) return
     dialog.showErrorBox(
       'Backend failed to start',
       `The DeltaAdvisor backend did not become ready on port ${BACKEND_PORT}.`,
     )
-    isQuitting = true
-    stopBackend()
     app.quit()
     return
   }
@@ -170,9 +215,12 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-app.on('before-quit', () => {
+app.on('before-quit', (event) => {
   isQuitting = true
-  stopBackend()
+  if (!backendProcess) return
+  // Hold the quit until the backend has exited, so it can't outlive the app.
+  event.preventDefault()
+  stopBackend().then(() => app.quit())
 })
 
 // IPC handlers

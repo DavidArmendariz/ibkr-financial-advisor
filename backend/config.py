@@ -11,7 +11,14 @@ ENV_FILE = Path(".env")
 
 
 class Settings(BaseSettings):
+    # "anthropic" or "openai_compatible" (OpenRouter, OpenAI, Ollama, LM Studio, …)
+    ai_provider: str = "anthropic"
     anthropic_api_key: str = ""
+    # Deliberately not OPENAI_*: the openai SDK and users' shells use those names
+    # for OpenAI itself, which would silently leak into an OpenRouter/Ollama setup.
+    openai_compat_base_url: str = "https://openrouter.ai/api/v1"
+    openai_compat_api_key: str = ""
+    openai_compat_model: str = ""
     ibkr_host: str = "127.0.0.1"
     ibkr_paper_port: int = 7497
     ibkr_live_port: int = 7496
@@ -27,12 +34,14 @@ def get_settings() -> Settings:
     return Settings()
 
 
-def save_anthropic_api_key(api_key: str) -> None:
-    """Persist the key to .env (owner-only permissions) and apply it immediately."""
+def save_env_values(values: dict[str, str]) -> None:
+    """Persist settings to .env (owner-only permissions) and apply them immediately."""
     ENV_FILE.touch(mode=0o600, exist_ok=True)
-    set_key(ENV_FILE, "ANTHROPIC_API_KEY", api_key, quote_mode="never")
+    for key, value in values.items():
+        set_key(ENV_FILE, key, value, quote_mode="never")
+        # Process env vars take precedence over .env in pydantic-settings, so
+        # update them too — otherwise a value exported in the shell would
+        # shadow the saved one.
+        os.environ[key] = value
     ENV_FILE.chmod(0o600)
-    # Process env vars take precedence over .env in pydantic-settings, so update
-    # it too — otherwise a key exported in the shell would shadow the saved one.
-    os.environ["ANTHROPIC_API_KEY"] = api_key
     get_settings.cache_clear()

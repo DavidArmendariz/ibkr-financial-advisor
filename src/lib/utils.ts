@@ -27,3 +27,18 @@ export function pnlClass(value: number): string {
   if (value < 0) return 'text-red-400'
   return 'text-zinc-400'
 }
+
+declare global {
+  interface Window {
+    // Exposed by electron/preload.cjs; absent when the UI runs in a plain browser
+    electronAPI?: {
+      getAppVersion: () => Promise<string>
+      openExternal: (url: string) => Promise<void>
+      platform: NodeJS.Platform
+    }
+  }
+}
+
+// The window uses titleBarStyle "hiddenInset", so on macOS the traffic-light
+// buttons are drawn over the top-left of the page and need room reserved.
+export const isMac = window.electronAPI?.platform === 'darwin'

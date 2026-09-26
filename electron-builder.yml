@@ -1,5 +1,5 @@
 appId: com.ibkr.financial-advisor
-productName: IBKR Financial Advisor
+productName: DeltaAdvisor
 
 directories:
   output: dist-electron
@@ -12,6 +12,7 @@ files:
 
 mac:
   category: public.app-category.finance
+  icon: assets/icon.icns
   darkModeSupport: true
   # Builds for the host architecture only: the PyInstaller backend binary is
   # native to the machine that froze it, so a universal app would ship a
@@ -24,7 +25,7 @@ mac:
   entitlementsInherit: assets/entitlements.mac.plist
 
 dmg:
-  title: "IBKR Financial Advisor"
+  title: "DeltaAdvisor"
   backgroundColor: "#0a0a0a"
 
 extraResources:

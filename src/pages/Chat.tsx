@@ -11,11 +11,11 @@ interface Props {
 }
 
 export function ChatPage({ onOpenSettings }: Props) {
-  const [hasApiKey, setHasApiKey] = useState(true)
+  const [aiConfigured, setAiConfigured] = useState(true)
 
   useEffect(() => {
     getSettings()
-      .then((s) => setHasApiKey(s.anthropic_api_key_set))
+      .then((s) => setAiConfigured(s.ai_configured))
       .catch(() => {})
   }, [])
 
@@ -43,11 +43,11 @@ export function ChatPage({ onOpenSettings }: Props) {
         onDelete={deleteThread}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
-        {!hasApiKey && (
+        {!aiConfigured && (
           <div className="flex items-center justify-between gap-3 border-b border-border bg-amber-500/10 px-4 py-2 text-sm">
             <span className="flex items-center gap-2 text-amber-400">
               <KeyRound className="h-4 w-4" />
-              Add your Anthropic API key to use the AI Advisor.
+              Set up an AI provider to use the AI Advisor.
             </span>
             <Button size="sm" variant="outline" onClick={onOpenSettings}>
               Open Settings

@@ -1,4 +1,8 @@
-@import "tailwindcss";
+/* Only scan the frontend for classes. By default Tailwind scans the whole repo,
+   and Vite then reloads the app whenever a backend file, README, or build
+   output changes. */
+@import "tailwindcss" source("..");
+@source "../../index.html";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));

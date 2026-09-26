@@ -2,7 +2,7 @@
 
 A local-first desktop application for trading and AI-powered financial advising, connected directly to Interactive Brokers via TWS or IB Gateway.
 
-Built with Electron + React on the frontend and a Python FastAPI backend — everything runs on your machine, your data never leaves it.
+Built with Electron + React on the frontend and a Python FastAPI backend. The app runs entirely on your machine; the only data that leaves it is what the AI Advisor sends to the AI provider you choose (or nothing, with a local model).
 
 ---
 
@@ -16,6 +16,7 @@ Built with Electron + React on the frontend and a Python FastAPI backend — eve
 **AI Financial Advisor**
 - Persistent chat sessions stored in a local SQLite database
 - Each message automatically injects a live snapshot of your portfolio (positions, P&L, cash) into the system prompt
+- Choose the provider in **Settings**: Anthropic (Claude), or any OpenAI-compatible API: OpenRouter (hundreds of models behind one key), OpenAI, or a local model via Ollama / LM Studio
 - Real-time streaming responses via WebSocket
 - Session sidebar: create, switch between, and delete conversations
 
@@ -34,7 +35,7 @@ Built with Electron + React on the frontend and a Python FastAPI backend — eve
 | Frontend | React 18, Vite 6, Tailwind CSS v4, Shadcn UI |
 | IBKR connectivity | Python 3.12, `ib_insync` |
 | API server | FastAPI, Uvicorn |
-| AI | Anthropic Claude (streaming via `anthropic` SDK) |
+| AI | Anthropic Claude (`anthropic` SDK) or any OpenAI-compatible API (`openai` SDK): OpenRouter, OpenAI, Ollama, LM Studio |
 | Database | SQLite via SQLModel + aiosqlite |
 | Python env | `uv` |
 | Node env | `nvm` (pinned to v20) |
@@ -82,11 +83,11 @@ uv sync
 cp .env.example .env
 ```
 
-Edit `.env` and fill in your values. The Anthropic API key can be left empty here and set from the app's **Settings** tab instead — it's verified with Anthropic and written back to this file.
+Edit `.env` and fill in your values. The AI settings can be left empty here and set from the app's **Settings** tab instead: keys and endpoints are verified, then written back to this file.
 
 ```env
 ANTHROPIC_API_KEY=sk-ant-...
-IBKR_PAPER_PORT=7497    # paper trading (tried first by auto-connect)
+IBKR_PAPER_PORT=7497    # paper trading (used by auto-connect)
 IBKR_LIVE_PORT=7496     # live trading
 IBKR_CLIENT_ID=1
 BACKEND_PORT=8000
@@ -205,10 +206,10 @@ ibkr-financial-advisor/
 │   │   ├── connection.py # GET /status, POST /connect, POST /auto-connect
 │   │   ├── portfolio.py  # GET /summary, /positions, /snapshot, /chart/:symbol
 │   │   ├── chat.py       # REST thread CRUD + WS /ws/:thread_id streaming
-│   │   └── settings.py   # GET /, PUT /anthropic-api-key
+│   │   └── settings.py   # AI provider selection, Anthropic key, OpenAI-compatible config
 │   └── services/
 │       ├── ibkr_service.py   # ib_insync singleton; connect, positions, bars
-│       └── ai_service.py     # Anthropic streaming with portfolio system prompt
+│       └── ai_service.py     # Anthropic / OpenAI-compatible streaming with portfolio system prompt
 │
 └── src/
     ├── App.tsx               # ConnectionGuard gate → Layout
@@ -251,8 +252,10 @@ ibkr-financial-advisor/
 | `DELETE` | `/api/chat/threads/:id` | Delete session + messages |
 | `GET` | `/api/chat/threads/:id/messages` | Full message history |
 | `WS` | `/api/chat/ws/:thread_id` | Streaming chat (send `{"message":"…"}`) |
-| `GET` | `/api/settings` | Whether an Anthropic API key is set (plus a `…abcd` hint; never the key) |
+| `GET` | `/api/settings` | Active AI provider and its configuration; keys only as set/`…abcd` hint, never the key |
+| `PUT` | `/api/settings/ai-provider` | Select the provider (`{"provider":"anthropic" \| "openai_compatible"}`) |
 | `PUT` | `/api/settings/anthropic-api-key` | Verify a key with Anthropic and save it (`{"api_key":"…"}`) |
+| `PUT` | `/api/settings/openai-compatible` | Verify and save `{"base_url","model","api_key"}` (omit `api_key` to keep the saved one, `""` to clear it) |
 
 ---
 
@@ -278,6 +281,7 @@ Error frame: `{ "type": "error", "content": "…" }`
 ## Notes
 
 - **Paper vs Live** — the app only auto-connects to paper (`7497`). Connecting to live (`7496`) always takes an explicit click. Never use live credentials for testing.
-- **API key security** — `ANTHROPIC_API_KEY` lives in `.env` and is only read by the local Python process. The Settings screen can write a new key, but the backend never sends a stored key back to the renderer.
-- **No data leaves your machine** — all portfolio data, chat history, and AI context are processed and stored locally.
+- **API key security** — API keys live in `.env` (owner-only permissions) and are only read by the local Python process. The Settings screen can write a new key, but the backend never sends a stored key back to the renderer.
+- **What leaves your machine** — portfolio data and chat history are stored locally. Each AI Advisor message sends the conversation plus a snapshot of your positions, P&L, and balances to the selected AI provider. With OpenRouter, the request also passes through OpenRouter to the model's provider; its privacy settings can restrict routing to providers that don't train on or retain data. A local model (Ollama, LM Studio) keeps everything on your machine.
+- **Model IDs** — the OpenAI-compatible model must be an ID the endpoint lists (e.g. `vendor/model-name` on OpenRouter). OpenRouter lists models without checking the key, so a wrong OpenRouter key only shows up as an error on the first chat message.
 - **Multiple IB clients** — if another app (e.g. the TWS API demo) is connected with `clientId=1`, change `IBKR_CLIENT_ID` in `.env` to avoid conflicts.

@@ -50,9 +50,19 @@ export interface ChatMessage {
   created_at: string
 }
 
+export type AIProvider = 'anthropic' | 'openai_compatible'
+
 export interface AppSettings {
+  ai_provider: AIProvider
+  ai_configured: boolean
   anthropic_api_key_set: boolean
   anthropic_api_key_hint: string | null
+  openai_compat: {
+    base_url: string
+    model: string
+    api_key_set: boolean
+    api_key_hint: string | null
+  }
 }
 
 export type AppTab = 'dashboard' | 'chat' | 'settings'

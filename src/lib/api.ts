@@ -1,6 +1,7 @@
 import axios from 'axios'
 import type {
   AccountSummary,
+  AIProvider,
   AppSettings,
   ChatMessage,
   ChatThread,
@@ -74,6 +75,19 @@ export const getSettings = () =>
 export const saveAnthropicApiKey = (apiKey: string) =>
   http
     .put<AppSettings>('/api/settings/anthropic-api-key', { api_key: apiKey }, { timeout: 30_000 })
+    .then((r) => r.data)
+
+export const setAIProvider = (provider: AIProvider) =>
+  http.put<AppSettings>('/api/settings/ai-provider', { provider }).then((r) => r.data)
+
+// apiKey undefined keeps the saved key; '' clears it (local servers need none)
+export const saveOpenAICompatible = (config: { baseUrl: string; model: string; apiKey?: string }) =>
+  http
+    .put<AppSettings>(
+      '/api/settings/openai-compatible',
+      { base_url: config.baseUrl, model: config.model, api_key: config.apiKey },
+      { timeout: 30_000 },
+    )
     .then((r) => r.data)
 
 // ── WebSocket chat ────────────────────────────────────────────────────────────

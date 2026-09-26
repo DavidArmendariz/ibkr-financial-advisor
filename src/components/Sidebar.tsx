@@ -1,5 +1,5 @@
 import { BarChart2, Bot, Settings, TrendingUp } from 'lucide-react'
-import { cn, formatCurrency, pnlClass } from '@/lib/utils'
+import { cn, formatCurrency, isMac, pnlClass } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
 import type { AccountSummary, AppTab, ConnectionStatus } from '@/types'
 
@@ -23,7 +23,7 @@ export function Sidebar({ activeTab, onTabChange, connectionStatus, summary }: P
   return (
     <aside className="flex h-full w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
       {/* Logo / title — also serves as the drag region for window movement */}
-      <div className="drag-region flex h-12 items-center gap-2 px-4">
+      <div className={cn('drag-region flex h-12 items-center gap-2 px-4', isMac && 'pl-20')}>
         <TrendingUp className="no-drag h-5 w-5 text-emerald-400" />
         <span className="no-drag text-sm font-semibold tracking-tight">IBKR Advisor</span>
       </div>

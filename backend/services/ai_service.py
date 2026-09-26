@@ -1,6 +1,9 @@
 from typing import AsyncGenerator
+
 import anthropic
-from backend.config import get_settings
+import openai
+
+from backend.config import Settings, get_settings
 
 
 def _build_system_prompt(portfolio: dict) -> str:
@@ -40,10 +43,23 @@ async def stream_chat_response(
     portfolio: dict,
 ) -> AsyncGenerator[str, None]:
     settings = get_settings()
+    system_prompt = _build_system_prompt(portfolio)
+
+    if settings.ai_provider == "openai_compatible":
+        stream = _stream_openai_compatible(settings, system_prompt, messages)
+    else:
+        stream = _stream_anthropic(settings, system_prompt, messages)
+
+    async for text in stream:
+        yield text
+
+
+async def _stream_anthropic(
+    settings: Settings, system_prompt: str, messages: list[dict]
+) -> AsyncGenerator[str, None]:
     if not settings.anthropic_api_key:
         raise RuntimeError("No Anthropic API key configured. Add one in Settings.")
     client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-    system_prompt = _build_system_prompt(portfolio)
 
     async with client.messages.stream(
         model="claude-sonnet-4-6",
@@ -53,3 +69,28 @@ async def stream_chat_response(
     ) as stream:
         async for text in stream.text_stream:
             yield text
+
+
+def openai_compatible_client(base_url: str, api_key: str) -> openai.AsyncOpenAI:
+    # Local servers (Ollama, LM Studio) need no key, but the SDK requires one
+    return openai.AsyncOpenAI(base_url=base_url, api_key=api_key or "not-needed")
+
+
+async def _stream_openai_compatible(
+    settings: Settings, system_prompt: str, messages: list[dict]
+) -> AsyncGenerator[str, None]:
+    if not settings.openai_compat_model:
+        raise RuntimeError("No model configured for the OpenAI-compatible provider. Set one in Settings.")
+    client = openai_compatible_client(settings.openai_compat_base_url, settings.openai_compat_api_key)
+
+    # No max_tokens: providers disagree on the parameter name
+    # (max_tokens vs max_completion_tokens), so use each model's default.
+    stream = await client.chat.completions.create(
+        model=settings.openai_compat_model,
+        messages=[{"role": "system", "content": system_prompt}, *messages],
+        stream=True,
+    )
+    async with stream:
+        async for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content

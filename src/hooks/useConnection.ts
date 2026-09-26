@@ -16,7 +16,8 @@ export function useConnection() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   // Auto-connect keeps retrying while disconnected, so the app connects on its
-  // own once TWS is started (or logs back in after its daily restart). A manual
+  // own once TWS is started (or logs back in after its daily restart). It only
+  // ever tries the paper account; live requires an explicit click. A manual
   // disconnect pauses it until the user connects again.
   const [autoConnect, setAutoConnect] = useState(true)
   const autoConnectRef = useRef(true)
@@ -86,7 +87,7 @@ export function useConnection() {
       if (!busyRef.current) {
         const backendUp = await fetchStatus()
         if (backendUp && !statusRef.current.connected && autoConnectRef.current && !cancelled) {
-          await connect(undefined, { background: !initial })
+          await connect('paper', { background: !initial })
         }
       }
       if (initial) setLoading(false)

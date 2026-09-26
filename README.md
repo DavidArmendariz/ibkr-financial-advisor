@@ -1,4 +1,4 @@
-# IBKR Financial Advisor
+# DeltaAdvisor
 
 A local-first desktop application for trading and AI-powered financial advising, connected directly to Interactive Brokers via TWS or IB Gateway.
 
@@ -176,7 +176,7 @@ For a quicker local check, skip the `.dmg` and build just the `.app`:
 
 ```bash
 npm run package:backend && npm run build && npx electron-builder --mac --dir
-open "dist-electron/mac-arm64/IBKR Financial Advisor.app"
+open "dist-electron/mac-arm64/DeltaAdvisor.app"
 ```
 
 ### How the packaged app runs

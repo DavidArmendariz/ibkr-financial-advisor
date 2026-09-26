@@ -23,7 +23,11 @@ protocol.registerSchemesAsPrivileged([
   { scheme: APP_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true } },
 ])
 
-const ENV_TEMPLATE = `# IBKR Financial Advisor configuration
+app.setName('DeltaAdvisor')
+// Keep the original data folder so existing .env and chat history survive the rename.
+app.setPath('userData', path.join(app.getPath('appData'), 'ibkr-financial-advisor'))
+
+const ENV_TEMPLATE = `# DeltaAdvisor configuration
 ANTHROPIC_API_KEY=
 IBKR_PAPER_PORT=7497
 IBKR_LIVE_PORT=7496
@@ -79,7 +83,7 @@ function startBackend() {
     if (!isQuitting) {
       dialog.showErrorBox(
         'Backend stopped',
-        `The IBKR Financial Advisor backend exited unexpectedly (code ${code}, signal ${signal}).`,
+        `The DeltaAdvisor backend exited unexpectedly (code ${code}, signal ${signal}).`,
       )
     }
   })
@@ -137,13 +141,15 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  // Packaged builds get the icon from the .icns in the bundle; in dev the dock would show Electron's.
+  if (isDev && process.platform === 'darwin') app.dock.setIcon(path.join(__dirname, '../assets/icon.png'))
   registerAppProtocol()
   startBackend()
 
   if (!isDev && !(await waitForBackend())) {
     dialog.showErrorBox(
       'Backend failed to start',
-      `The IBKR Financial Advisor backend did not become ready on port ${BACKEND_PORT}.`,
+      `The DeltaAdvisor backend did not become ready on port ${BACKEND_PORT}.`,
     )
     isQuitting = true
     stopBackend()

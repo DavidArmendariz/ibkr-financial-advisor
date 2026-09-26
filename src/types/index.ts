@@ -50,4 +50,9 @@ export interface ChatMessage {
   created_at: string
 }
 
-export type AppTab = 'dashboard' | 'chat'
+export interface AppSettings {
+  anthropic_api_key_set: boolean
+  anthropic_api_key_hint: string | null
+}
+
+export type AppTab = 'dashboard' | 'chat' | 'settings'

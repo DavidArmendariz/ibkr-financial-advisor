@@ -32,3 +32,6 @@ backend-dist/
 # Logs
 *.log
 npm-debug.log*
+
+# Local SQLite DB
+*.db

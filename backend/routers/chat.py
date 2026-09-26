@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisco
 from pydantic import BaseModel
 from sqlmodel import select
 
-from backend.database import AsyncSessionLocal, ChatMessage, ChatThread, get_session
+from backend import database
+from backend.database import ChatMessage, ChatThread, get_session
 from backend.services import ai_service, ibkr_service
 
 router = APIRouter()
@@ -68,7 +69,7 @@ async def get_messages(thread_id: str, session=Depends(get_session)):
 async def websocket_chat(thread_id: str, websocket: WebSocket):
     await websocket.accept()
 
-    async with AsyncSessionLocal() as session:
+    async with database.AsyncSessionLocal() as session:
         thread = await session.get(ChatThread, thread_id)
         if not thread:
             await websocket.send_json({"type": "error", "content": "Thread not found"})

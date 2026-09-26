@@ -1,4 +1,4 @@
-import { BarChart2, Bot, TrendingUp } from 'lucide-react'
+import { BarChart2, Bot, Settings, TrendingUp } from 'lucide-react'
 import { cn, formatCurrency, pnlClass } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
 import type { AccountSummary, AppTab, ConnectionStatus } from '@/types'
@@ -13,6 +13,7 @@ interface Props {
 const TABS: { id: AppTab; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart2 },
   { id: 'chat', label: 'AI Advisor', icon: Bot },
+  { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
 export function Sidebar({ activeTab, onTabChange, connectionStatus, summary }: Props) {

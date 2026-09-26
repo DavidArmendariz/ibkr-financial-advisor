@@ -1,6 +1,7 @@
 import { Sidebar } from '@/components/Sidebar'
 import { Dashboard } from '@/pages/Dashboard'
 import { ChatPage } from '@/pages/Chat'
+import { SettingsPage } from '@/pages/Settings'
 import { usePortfolio } from '@/hooks/usePortfolio'
 import type { AppTab, ConnectionStatus } from '@/types'
 
@@ -32,7 +33,8 @@ export function Layout({ activeTab, onTabChange, connectionStatus, onDisconnect 
             onRefresh={portfolio.refresh}
           />
         )}
-        {activeTab === 'chat' && <ChatPage />}
+        {activeTab === 'chat' && <ChatPage onOpenSettings={() => onTabChange('settings')} />}
+        {activeTab === 'settings' && <SettingsPage />}
       </main>
     </div>
   )

@@ -7,12 +7,11 @@
     "dev": "concurrently -n backend,vite,electron -c cyan,green,blue --kill-others \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:electron\"",
     "dev:backend": "uv run uvicorn backend.main:app --reload --port 8000 --log-level info",
     "dev:frontend": "vite",
-    "dev:electron": "wait-on tcp:8000 http://localhost:5173 && cross-env NODE_ENV=development electron .",
+    "dev:electron": "wait-on tcp:8000 http://localhost:5273 && cross-env NODE_ENV=development electron .",
     "build": "tsc -p tsconfig.node.json && vite build",
-    "package:backend": "uv run pyinstaller backend/main.py --onefile --name server --distpath backend-dist --hidden-import=uvicorn.logging --hidden-import=uvicorn.loops --hidden-import=uvicorn.loops.auto --hidden-import=uvicorn.protocols --hidden-import=uvicorn.protocols.http --hidden-import=uvicorn.protocols.http.auto --hidden-import=uvicorn.protocols.websockets --hidden-import=uvicorn.protocols.websockets.auto --hidden-import=uvicorn.lifespan --hidden-import=uvicorn.lifespan.on",
-    "package": "npm run build && electron-builder",
-    "package:mac": "npm run build && electron-builder --mac",
-    "package:mac:universal": "npm run build && electron-builder --mac --universal"
+    "package:backend": "uv run pyinstaller backend/main.py --noconfirm --paths . --specpath build --onefile --name server --distpath backend-dist --hidden-import=aiosqlite --hidden-import=uvicorn.logging --hidden-import=uvicorn.loops --hidden-import=uvicorn.loops.auto --hidden-import=uvicorn.protocols --hidden-import=uvicorn.protocols.http --hidden-import=uvicorn.protocols.http.auto --hidden-import=uvicorn.protocols.websockets --hidden-import=uvicorn.protocols.websockets.auto --hidden-import=uvicorn.lifespan --hidden-import=uvicorn.lifespan.on",
+    "package": "npm run package:backend && npm run build && electron-builder",
+    "package:mac": "npm run package:backend && npm run build && electron-builder --mac"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.4",

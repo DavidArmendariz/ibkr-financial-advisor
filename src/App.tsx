@@ -14,7 +14,8 @@ export default function App() {
         status={connection.status}
         loading={connection.loading}
         error={connection.error}
-        onConnect={connection.connect}
+        autoConnect={connection.autoConnect}
+        onConnect={(mode) => connection.connect(mode)}
       />
     )
   }

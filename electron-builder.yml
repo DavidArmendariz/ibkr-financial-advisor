@@ -13,11 +13,11 @@ files:
 mac:
   category: public.app-category.finance
   darkModeSupport: true
+  # Builds for the host architecture only: the PyInstaller backend binary is
+  # native to the machine that froze it, so a universal app would ship a
+  # backend that can't run on the other architecture.
   target:
-    - target: dmg
-      arch:
-        - universal
-  icon: assets/icon.icns
+    - dmg
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlements: assets/entitlements.mac.plist

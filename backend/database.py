@@ -2,9 +2,10 @@ from datetime import datetime, timezone
 from typing import Optional
 import uuid
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel, Field
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from backend.config import get_settings
 

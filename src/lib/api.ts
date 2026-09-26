@@ -1,6 +1,7 @@
 import axios from 'axios'
 import type {
   AccountSummary,
+  AppSettings,
   ChatMessage,
   ChatThread,
   ConnectionStatus,
@@ -63,6 +64,17 @@ export const deleteThread = (threadId: string) =>
 
 export const getMessages = (threadId: string) =>
   http.get<ChatMessage[]>(`/api/chat/threads/${threadId}/messages`).then((r) => r.data)
+
+// ── Settings ─────────────────────────────────────────────────────────────────
+
+export const getSettings = () =>
+  http.get<AppSettings>('/api/settings').then((r) => r.data)
+
+// Longer timeout: the backend verifies the key with Anthropic before saving it
+export const saveAnthropicApiKey = (apiKey: string) =>
+  http
+    .put<AppSettings>('/api/settings/anthropic-api-key', { api_key: apiKey }, { timeout: 30_000 })
+    .then((r) => r.data)
 
 // ── WebSocket chat ────────────────────────────────────────────────────────────
 

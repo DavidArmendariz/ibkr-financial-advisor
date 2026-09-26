@@ -1,16 +1,28 @@
 import asyncio
 from typing import Optional
-from ib_insync import IB, util, Stock, Forex
+from ib_insync import IB, Stock, Forex
 
-# Patch asyncio so ib_insync works inside an existing event loop (FastAPI's)
-util.patchAsyncio()
+from backend.config import get_settings
+
+# Only ib_insync's *Async APIs are used, awaited on FastAPI's own event loop,
+# so no nest_asyncio patching is needed (and it can't patch uvloop anyway).
 
 ibkr = IB()
 
 _connected_port: Optional[int] = None
 
 
+# Serializes connection attempts: the UI's launch-time auto-connect and a
+# button click (or React's dev double-mount) can otherwise race on the socket.
+_connect_lock = asyncio.Lock()
+
+
 async def connect(host: str, port: int, client_id: int) -> bool:
+    async with _connect_lock:
+        return await _connect(host, port, client_id)
+
+
+async def _connect(host: str, port: int, client_id: int) -> bool:
     global _connected_port
     if ibkr.isConnected():
         if _connected_port == port:
@@ -18,7 +30,10 @@ async def connect(host: str, port: int, client_id: int) -> bool:
         ibkr.disconnect()
 
     try:
-        await ibkr.connectAsync(host, port, clientId=client_id, timeout=5)
+        # readonly: the app only reads data. Without it ib_insync requests open and
+        # completed orders on connect, which TWS rejects (with a pop-up) when
+        # "Read-Only API" is enabled.
+        await ibkr.connectAsync(host, port, clientId=client_id, timeout=5, readonly=True)
         _connected_port = port
         return True
     except Exception:
@@ -33,10 +48,15 @@ def disconnect() -> None:
 
 
 def get_status() -> dict:
+    connected = ibkr.isConnected()
+    port = _connected_port if connected else None
+    settings = get_settings()
+    mode = {settings.ibkr_paper_port: "paper", settings.ibkr_live_port: "live"}.get(port)
     return {
-        "connected": ibkr.isConnected(),
-        "port": _connected_port,
-        "server_version": ibkr.serverVersion() if ibkr.isConnected() else None,
+        "connected": connected,
+        "port": port,
+        "mode": mode,
+        "server_version": ibkr.client.serverVersion() if connected else None,
     }
 
 
@@ -52,8 +72,22 @@ async def get_account_summary() -> dict:
         "TotalCashValue",
         "GrossPositionValue",
     ]
-    summary = await ibkr.reqAccountSummaryAsync()
-    return {item.tag: float(item.value) for item in summary if item.tag in tags}
+    # accountSummaryAsync() subscribes on first call and then serves the live,
+    # continuously-updated values (reqAccountSummaryAsync() itself returns None).
+    summary = await ibkr.accountSummaryAsync()
+    result: dict[str, float] = {}
+    for item in summary:
+        # P&L arrives as per-currency ledger rows ("$LEDGER-UnrealizedPnL", or
+        # "UnrealizedPnL" when TWS's "$LEDGER" prefix option is off); prefer the
+        # BASE-currency total over individual currencies.
+        tag = item.tag.removeprefix("$LEDGER-")
+        if tag not in tags or (tag in result and item.currency != "BASE"):
+            continue
+        try:
+            result[tag] = float(item.value)
+        except ValueError:
+            continue
+    return result
 
 
 async def get_positions() -> list[dict]:

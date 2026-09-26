@@ -40,6 +40,8 @@ async def stream_chat_response(
     portfolio: dict,
 ) -> AsyncGenerator[str, None]:
     settings = get_settings()
+    if not settings.anthropic_api_key:
+        raise RuntimeError("No Anthropic API key configured. Add one in Settings.")
     client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
     system_prompt = _build_system_prompt(portfolio)
 

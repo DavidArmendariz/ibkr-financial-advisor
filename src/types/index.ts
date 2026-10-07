@@ -66,3 +66,5 @@ export interface AppSettings {
 }
 
 export type AppTab = 'dashboard' | 'chat' | 'settings'
+
+export type RiskProfile = 'conservative' | 'moderate' | 'aggressive'

@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import { MessageBubble, StreamingBubble } from './MessageBubble'
-import type { ChatMessage } from '@/types'
+import { RiskProfileSelect } from './RiskProfileSelect'
+import type { ChatMessage, RiskProfile } from '@/types'
 
 interface Props {
   messages: ChatMessage[]
@@ -12,9 +13,19 @@ interface Props {
   isStreaming: boolean
   onSend: (text: string) => void
   hasThread: boolean
+  riskProfile: RiskProfile
+  onRiskProfileChange: (profile: RiskProfile) => void
 }
 
-export function ChatWindow({ messages, streamingContent, isStreaming, onSend, hasThread }: Props) {
+export function ChatWindow({
+  messages,
+  streamingContent,
+  isStreaming,
+  onSend,
+  hasThread,
+  riskProfile,
+  onRiskProfileChange,
+}: Props) {
   const [input, setInput] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -73,6 +84,7 @@ export function ChatWindow({ messages, streamingContent, isStreaming, onSend, ha
 
       {/* Input */}
       <div className="border-t border-border p-4">
+        <RiskProfileSelect value={riskProfile} onChange={onRiskProfileChange} disabled={isStreaming} />
         <div className="flex items-end gap-2">
           <Textarea
             value={input}

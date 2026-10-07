@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as api from '@/lib/api'
-import type { ChatMessage, ChatThread } from '@/types'
+import type { ChatMessage, ChatThread, RiskProfile } from '@/types'
 
 export function useChat() {
   const [threads, setThreads] = useState<ChatThread[]>([])
@@ -71,7 +71,7 @@ export function useChat() {
   )
 
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (text: string, riskProfile: RiskProfile) => {
       if (!activeThreadId || isStreaming) return
 
       // Optimistically add user message to UI
@@ -116,7 +116,7 @@ export function useChat() {
         setStreamingContent('')
       }
 
-      const doSend = () => ws.send(JSON.stringify({ message: text }))
+      const doSend = () => ws.send(JSON.stringify({ message: text, risk_profile: riskProfile }))
       if (ws.readyState === WebSocket.OPEN) {
         doSend()
       } else {

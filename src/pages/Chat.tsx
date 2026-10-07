@@ -5,6 +5,15 @@ import { Button } from '@/components/ui/button'
 import { getSettings } from '@/lib/api'
 import { ChatSessionList } from '@/components/chat/ChatSessionList'
 import { ChatWindow } from '@/components/chat/ChatWindow'
+import { isRiskProfile } from '@/components/chat/RiskProfileSelect'
+import type { RiskProfile } from '@/types'
+
+const RISK_PROFILE_KEY = 'advisor.riskProfile'
+
+function loadRiskProfile(): RiskProfile {
+  const saved = localStorage.getItem(RISK_PROFILE_KEY)
+  return isRiskProfile(saved) ? saved : 'moderate'
+}
 
 interface Props {
   onOpenSettings: () => void
@@ -12,6 +21,12 @@ interface Props {
 
 export function ChatPage({ onOpenSettings }: Props) {
   const [aiConfigured, setAiConfigured] = useState(true)
+  const [riskProfile, setRiskProfile] = useState<RiskProfile>(loadRiskProfile)
+
+  const changeRiskProfile = (profile: RiskProfile) => {
+    setRiskProfile(profile)
+    localStorage.setItem(RISK_PROFILE_KEY, profile)
+  }
 
   useEffect(() => {
     getSettings()
@@ -58,8 +73,10 @@ export function ChatPage({ onOpenSettings }: Props) {
           messages={messages}
           streamingContent={streamingContent}
           isStreaming={isStreaming}
-          onSend={sendMessage}
+          onSend={(text) => sendMessage(text, riskProfile)}
           hasThread={activeThreadId !== null}
+          riskProfile={riskProfile}
+          onRiskProfileChange={changeRiskProfile}
         />
       </div>
     </div>

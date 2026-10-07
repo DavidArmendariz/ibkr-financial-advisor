@@ -1,4 +1,6 @@
 import asyncio
+import calendar
+from datetime import datetime
 from typing import Optional
 from ib_insync import IB, Stock, Forex
 
@@ -132,6 +134,14 @@ async def get_positions() -> list[dict]:
     return result
 
 
+def _bar_time(value) -> float:
+    # Intraday bars carry a datetime; daily and longer bars carry a plain date,
+    # which becomes midnight UTC so charts get one consistent unix-seconds axis.
+    if isinstance(value, datetime):
+        return value.timestamp()
+    return float(calendar.timegm(value.timetuple()))
+
+
 async def get_historical_bars(
     symbol: str,
     duration: str = "1 D",
@@ -156,7 +166,7 @@ async def get_historical_bars(
 
     return [
         {
-            "time": bar.date.timestamp() if hasattr(bar.date, "timestamp") else int(bar.date),
+            "time": _bar_time(bar.date),
             "open": bar.open,
             "high": bar.high,
             "low": bar.low,

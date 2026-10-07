@@ -12,22 +12,27 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { getChartData } from '@/lib/api'
 
-const DURATIONS = [
+export const DURATIONS = [
   { label: '1D', duration: '1 D', barSize: '5 mins' },
   { label: '5D', duration: '5 D', barSize: '30 mins' },
   { label: '1M', duration: '1 M', barSize: '1 day' },
   { label: '3M', duration: '3 M', barSize: '1 day' },
+  { label: '1Y', duration: '1 Y', barSize: '1 day' },
 ]
 
 interface Props {
   symbol: string | null
+  initialPeriod?: string
+  height?: number
 }
 
-export function TradingChart({ symbol }: Props) {
+export function TradingChart({ symbol, initialPeriod, height = 320 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
-  const [activeDuration, setActiveDuration] = useState(DURATIONS[0])
+  const [activeDuration, setActiveDuration] = useState(
+    () => DURATIONS.find((d) => d.label === initialPeriod) ?? DURATIONS[0],
+  )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -48,7 +53,7 @@ export function TradingChart({ symbol }: Props) {
       timeScale: { borderColor: 'rgba(255,255,255,0.06)', timeVisible: true },
       rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)' },
       width: containerRef.current.clientWidth,
-      height: 320,
+      height,
     })
 
     seriesRef.current = chart.addCandlestickSeries({

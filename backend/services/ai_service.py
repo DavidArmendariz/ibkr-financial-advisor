@@ -34,6 +34,29 @@ RISK_PROFILES: dict[str, str] = {
 }
 
 
+# Fenced-block formats the chat UI renders as charts (see src/components/chat/Markdown.tsx).
+CHART_INSTRUCTIONS = """Charts:
+The chat renders two kinds of fenced code blocks as charts. Use one when a picture makes the point clearer than text: allocation breakdowns, current vs. target weights, rebalancing changes, concentration, or a price history. Don't chart a single number, and use at most two charts per reply. Put the block on its own, with valid JSON only (no comments), and still state the key numbers in the text.
+
+1. ```chart — a chart of numbers you supply. "unit" is "%", "$", or omitted. Three types:
+   - Part-to-whole (weights summing to a whole), up to 8 slices:
+     ```chart
+     {"type": "allocation", "title": "Target allocation", "unit": "%", "data": [{"label": "US equities", "value": 45}, {"label": "Bonds", "value": 40}, {"label": "Cash", "value": 15}]}
+     ```
+   - Compare categories, up to 4 series (e.g. current vs. target):
+     ```chart
+     {"type": "bar", "title": "Current vs. target", "unit": "%", "categories": ["Equities", "Bonds", "Cash"], "series": [{"name": "Current", "values": [0, 0, 100]}, {"name": "Target", "values": [45, 40, 15]}]}
+     ```
+   - A trend over an ordered x-axis, up to 4 series. Only plot numbers you can justify; label projections as such in the title:
+     ```chart
+     {"type": "line", "title": "Illustrative growth at 6%/yr (projection)", "unit": "$", "x": ["2026", "2027", "2028"], "series": [{"name": "Portfolio", "values": [1000000, 1060000, 1123600]}]}
+     ```
+2. ```price-chart — real price history loaded live from Interactive Brokers, for a US-listed stock or ETF ticker. "period" is one of "1D", "5D", "1M", "3M", "1Y". Never invent price data; use this instead:
+   ```price-chart
+   {"symbol": "SPY", "period": "1Y"}
+   ```"""
+
+
 def _build_system_prompt(portfolio: dict, risk_profile: RiskProfile) -> str:
     positions = portfolio.get("positions", [])
     summary = portfolio.get("summary", {})
@@ -77,7 +100,9 @@ Guidelines:
 - Buying power includes margin; it is not cash. Base recommendations on net liquidation value and cash.
 - When you propose changes, give target weights or sizes and the main risk of each, and explain the reasoning.
 - Be concise but thorough. Use markdown formatting for clarity. Reply in the client's language.
-- Always note that your analysis is for educational purposes and does not constitute professional financial advice."""
+- Always note that your analysis is for educational purposes and does not constitute professional financial advice.
+
+{CHART_INSTRUCTIONS}"""
 
 
 async def stream_chat_response(

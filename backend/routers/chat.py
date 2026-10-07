@@ -83,6 +83,9 @@ async def websocket_chat(thread_id: str, websocket: WebSocket):
                 user_text = data.get("message", "").strip()
                 if not user_text:
                     continue
+                risk_profile = data.get("risk_profile")
+                if risk_profile not in ai_service.RISK_PROFILES:
+                    risk_profile = ai_service.DEFAULT_RISK_PROFILE
 
                 # Auto-title thread on first user message (query before adding new msg)
                 existing_result = await session.exec(
@@ -123,7 +126,7 @@ async def websocket_chat(thread_id: str, websocket: WebSocket):
                 assistant_text = ""
                 await websocket.send_json({"type": "start"})
 
-                async for chunk in ai_service.stream_chat_response(history, portfolio):
+                async for chunk in ai_service.stream_chat_response(history, portfolio, risk_profile):
                     assistant_text += chunk
                     await websocket.send_json({"type": "chunk", "content": chunk})
 

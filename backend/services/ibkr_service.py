@@ -2,16 +2,22 @@ import asyncio
 import calendar
 from datetime import datetime
 from typing import Optional
-from ib_insync import IB, Stock, Forex
+from ib_async import IB, Stock, Forex
 
 from backend.config import get_settings
 
-# Only ib_insync's *Async APIs are used, awaited on FastAPI's own event loop,
+# Only ib_async's *Async APIs are used, awaited on FastAPI's own event loop,
 # so no nest_asyncio patching is needed (and it can't patch uvloop anyway).
 
 ibkr = IB()
 
 _connected_port: Optional[int] = None
+# Set by a successful connect and cleared by an explicit disconnect; while set,
+# supervise() reconnects after drops (IB Gateway's nightly restart, network blips).
+_target: Optional[tuple[str, int, int]] = None
+reconnecting = False
+
+RECONNECT_MAX_DELAY = 60.0
 
 
 # Serializes connection attempts: the UI's launch-time auto-connect and a
@@ -25,32 +31,49 @@ async def connect(host: str, port: int, client_id: int) -> bool:
 
 
 async def _connect(host: str, port: int, client_id: int) -> bool:
-    global _connected_port
+    global _connected_port, _target
     if ibkr.isConnected():
         if _connected_port == port:
             return True
         ibkr.disconnect()
 
     try:
-        # readonly: the app only reads data. Without it ib_insync requests open and
+        # readonly: the app only reads data. Without it ib_async requests open and
         # completed orders on connect, which TWS rejects (with a pop-up) when
         # "Read-Only API" is enabled.
         await ibkr.connectAsync(host, port, clientId=client_id, timeout=5, readonly=True)
         _connected_port = port
+        _target = (host, port, client_id)
         return True
     except Exception:
         return False
 
 
 def disconnect() -> None:
-    global _connected_port
+    global _connected_port, _target
+    _target = None
     if ibkr.isConnected():
         ibkr.disconnect()
     _connected_port = None
 
 
+async def supervise() -> None:
+    global reconnecting
+    delay = 1.0
+    while True:
+        await asyncio.sleep(delay if reconnecting else 1.0)
+        if _target is None or ibkr.isConnected():
+            reconnecting, delay = False, 1.0
+            continue
+        reconnecting = True
+        if await connect(*_target):
+            reconnecting, delay = False, 1.0
+        else:
+            delay = min(delay * 2, RECONNECT_MAX_DELAY)
+
+
 def get_status() -> dict:
-    # ib_insync reports connected before connectAsync() finishes its initial
+    # ib_async reports connected before connectAsync() finishes its initial
     # sync; only report it once connect() has recorded the port.
     connected = ibkr.isConnected() and _connected_port is not None
     port = _connected_port if connected else None

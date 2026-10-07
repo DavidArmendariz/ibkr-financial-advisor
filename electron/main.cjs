@@ -5,6 +5,7 @@ const fs = require('fs')
 const path = require('path')
 const { pathToFileURL } = require('url')
 const { spawn, spawnSync } = require('child_process')
+const { startSignalNotifications } = require('./signal-notifications.cjs')
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 
@@ -36,6 +37,7 @@ IBKR_CLIENT_ID=1
 `
 
 let mainWindow = null
+let stopSignalNotifications = null
 let backendProcess = null
 let isQuitting = false
 
@@ -203,11 +205,27 @@ app.whenReady().then(async () => {
   }
 
   createWindow()
+  stopSignalNotifications = startSignalNotifications({
+    url: `ws://127.0.0.1:${BACKEND_PORT}/api/signals/ws`,
+    onClick: () => showTab('signals'),
+  })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
+
+function showTab(tab) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow()
+    mainWindow.webContents.once('did-finish-load', () => mainWindow.webContents.send('navigate', tab))
+  } else {
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.webContents.send('navigate', tab)
+  }
+  mainWindow.show()
+  mainWindow.focus()
+}
 
 app.on('window-all-closed', () => {
   // On macOS the app stays alive in the dock, so keep the backend running too;
@@ -217,6 +235,8 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', (event) => {
   isQuitting = true
+  stopSignalNotifications?.()
+  stopSignalNotifications = null
   if (!backendProcess) return
   // Hold the quit until the backend has exited, so it can't outlive the app.
   event.preventDefault()

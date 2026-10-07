@@ -35,6 +35,7 @@ declare global {
       getAppVersion: () => Promise<string>
       openExternal: (url: string) => Promise<void>
       platform: NodeJS.Platform
+      onNavigate?: (callback: (tab: string) => void) => () => void
     }
   }
 }

@@ -6,18 +6,24 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import get_settings
 from backend.database import create_db_and_tables
-from backend.routers import connection, portfolio, chat, settings
+from backend.routers import connection, portfolio, chat, settings, signals
+from backend.services import ibkr_service
 from backend.services.ibkr_service import ibkr
+from backend.signals.service import signal_service
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # uvicorn runs its loop via asyncio.Runner(loop_factory=...), which doesn't
-    # register it as the thread's current loop. ib_insync looks the loop up with
+    # register it as the thread's current loop. ib_async looks the loop up with
     # get_event_loop(), so register it or its futures land on a different loop.
     asyncio.set_event_loop(asyncio.get_running_loop())
     await create_db_and_tables()
+    supervisor = asyncio.create_task(ibkr_service.supervise())
+    await signal_service.start()
     yield
+    supervisor.cancel()
+    await signal_service.stop()
     if ibkr.isConnected():
         ibkr.disconnect()
 
@@ -37,6 +43,7 @@ app.include_router(connection.router, prefix="/api/connection", tags=["connectio
 app.include_router(portfolio.router, prefix="/api/portfolio", tags=["portfolio"])
 app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
+app.include_router(signals.router, prefix="/api/signals", tags=["signals"])
 
 
 @app.get("/api/health")

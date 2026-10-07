@@ -55,4 +55,12 @@ if __name__ == "__main__":
     # Entry point for the frozen PyInstaller binary spawned by Electron in production
     import uvicorn
 
-    uvicorn.run(app, host="127.0.0.1", port=get_settings().backend_port, log_level="info")
+    # Open WebSockets and requests still waiting on IBKR can otherwise keep the
+    # server from ever finishing its shutdown.
+    uvicorn.run(
+        app,
+        host="127.0.0.1",
+        port=get_settings().backend_port,
+        log_level="info",
+        timeout_graceful_shutdown=5,
+    )

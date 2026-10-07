@@ -57,6 +57,16 @@ def disconnect() -> None:
     _connected_port = None
 
 
+async def reconnect() -> bool:
+    target = _target
+    async with _connect_lock:
+        # Re-check under the lock: a manual connect (e.g. switching to live) may
+        # have finished while this waited, and must not be undone.
+        if target is None or target != _target or ibkr.isConnected():
+            return True
+        return await _connect(*target)
+
+
 async def supervise() -> None:
     global reconnecting
     delay = 1.0
@@ -66,7 +76,7 @@ async def supervise() -> None:
             reconnecting, delay = False, 1.0
             continue
         reconnecting = True
-        if await connect(*_target):
+        if await reconnect():
             reconnecting, delay = False, 1.0
         else:
             delay = min(delay * 2, RECONNECT_MAX_DELAY)

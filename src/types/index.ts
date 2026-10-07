@@ -65,6 +65,85 @@ export interface AppSettings {
   }
 }
 
-export type AppTab = 'dashboard' | 'chat' | 'settings'
+export type AppTab = 'dashboard' | 'chat' | 'signals' | 'settings'
 
 export type RiskProfile = 'conservative' | 'moderate' | 'aggressive'
+
+export interface SignalStatus {
+  ib: 'connected' | 'reconnecting' | 'down'
+  stream: 'idle' | 'warming_up' | 'streaming' | 'error'
+  error: string | null
+  symbol: string
+  timeframe_minutes: number
+  llm: {
+    enabled: boolean
+    configured: boolean
+    provider: string | null
+    model: string | null
+  }
+}
+
+export interface SignalIndicators {
+  vwap: number | null
+  ema_fast: number | null
+  ema_slow: number | null
+  bb_mid: number | null
+  bb_upper: number | null
+  bb_lower: number | null
+  rvol: number | null
+}
+
+export interface SignalLive {
+  last_price: number | null
+  last_price_time: string | null
+  bar_time: string | null
+  bar_close: number | null
+  indicators: SignalIndicators | null
+}
+
+export interface LLMDecision {
+  action: 'take' | 'skip' | 'unfiltered'
+  confidence: number | null
+  reason: string
+  provider: string | null
+  model: string | null
+}
+
+export interface SignalRecord {
+  id: string
+  time: string
+  symbol: string
+  signal_type: string
+  price: number
+  indicators: SignalIndicators
+  bars: { time: string; open: number; high: number; low: number; close: number; volume: number }[]
+  llm: LLMDecision
+  notified: boolean
+}
+
+export interface SignalSettings {
+  symbol: string
+  timeframe_minutes: number
+  ema_fast: number
+  ema_slow: number
+  bb_period: number
+  bb_std: number
+  rvol_period: number
+  rvol_threshold: number
+  include_premarket: boolean
+  open_blackout_minutes: number
+  close_blackout_minutes: number
+  cooldown_minutes: number
+  llm_enabled: boolean
+  llm_confidence_threshold: number
+  llm_model_anthropic: string
+  llm_model_openai: string
+  llm_model_openrouter: string
+}
+
+export interface SignalState {
+  status: SignalStatus
+  live: SignalLive
+  history: SignalRecord[]
+  settings: SignalSettings
+}

@@ -8,6 +8,8 @@ import type {
   ConnectionStatus,
   OHLCBar,
   Position,
+  SignalSettings,
+  SignalState,
 } from '@/types'
 
 const BASE = 'http://localhost:8000'
@@ -94,4 +96,15 @@ export const saveOpenAICompatible = (config: { baseUrl: string; model: string; a
 
 export function createChatSocket(threadId: string): WebSocket {
   return new WebSocket(`ws://localhost:8000/api/chat/ws/${threadId}`)
+}
+
+// ── Signals ──────────────────────────────────────────────────────────────────
+
+export const getSignalState = () => http.get<SignalState>('/api/signals/state').then((r) => r.data)
+
+export const updateSignalSettings = (values: Partial<SignalSettings>) =>
+  http.put<SignalSettings>('/api/signals/settings', values).then((r) => r.data)
+
+export function createSignalsSocket(): WebSocket {
+  return new WebSocket('ws://localhost:8000/api/signals/ws')
 }

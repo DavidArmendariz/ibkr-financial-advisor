@@ -25,6 +25,15 @@ class ChatMessage(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class SignalEvent(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    time: datetime = Field(index=True)  # bar close
+    signal_type: str = Field(max_length=40)
+    symbol: str = Field(max_length=20)
+    price: float
+    payload: str  # JSON: indicators, bars, llm decision, notified
+
+
 _engine = None
 AsyncSessionLocal = None
 

@@ -1,0 +1,22 @@
+schema: spec-driven
+
+context: |
+  DeltaAdvisor: local-first macOS desktop app connected to Interactive Brokers (TWS / IB Gateway).
+  Stack: Electron 34 shell; React 18 + Vite + Tailwind v4 renderer; Python 3.12 FastAPI backend
+  (uv) with ib_async, SQLModel/SQLite, anthropic and openai SDKs; pytest for backend tests.
+  Hard constraints: IBKR access is read-only and the app never places orders; auto-connect only
+  targets the paper port; API keys stay in the backend (.env, owner-only) and never reach the
+  renderer; settings persist to .env with a per-feature prefix and apply without a restart.
+  Market data realities: real-time stock and option data need paid API-eligible subscriptions
+  (Network B, OPRA) shared from the live account; option open interest only arrives during
+  market hours; ~100 simultaneous market data lines.
+  See CLAUDE.md for commands and gotchas, docs/decisions.md for decisions made before OpenSpec.
+
+rules:
+  proposal:
+    - State whether the change touches IBKR access, order handling, API keys, or data leaving the machine, and how the hard constraints stay intact.
+  design:
+    - For each decision, name the alternative considered and why it lost.
+    - Note any IBKR data permission, pacing, or market-hours dependency.
+  tasks:
+    - Include verification tasks: uv run pytest, npx tsc --noEmit -p ., npx vite build, and a visual check of changed views.

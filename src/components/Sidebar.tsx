@@ -1,4 +1,4 @@
-import { BarChart2, Bot, Radar, Settings } from 'lucide-react'
+import { BarChart2, Bot, Radar, Settings, Sigma } from 'lucide-react'
 import { DeltaWitsMark } from '@/components/DeltaWitsMark'
 import { cn, formatCurrency, isMac, pnlClass } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
@@ -15,6 +15,7 @@ const TABS: { id: AppTab; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart2 },
   { id: 'chat', label: 'AI Advisor', icon: Bot },
   { id: 'signals', label: 'Signals', icon: Radar },
+  { id: 'gamma', label: 'Gamma', icon: Sigma },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 

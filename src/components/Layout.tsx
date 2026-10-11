@@ -3,6 +3,7 @@ import { Dashboard } from '@/pages/Dashboard'
 import { ChatPage } from '@/pages/Chat'
 import { SettingsPage } from '@/pages/Settings'
 import { SignalsPage } from '@/pages/Signals'
+import { GammaPage } from '@/pages/Gamma'
 import { usePortfolio } from '@/hooks/usePortfolio'
 import type { AppTab, ConnectionStatus } from '@/types'
 
@@ -36,6 +37,7 @@ export function Layout({ activeTab, onTabChange, connectionStatus, onDisconnect 
         )}
         {activeTab === 'chat' && <ChatPage onOpenSettings={() => onTabChange('settings')} />}
         {activeTab === 'signals' && <SignalsPage />}
+        {activeTab === 'gamma' && <GammaPage />}
         {activeTab === 'settings' && <SettingsPage />}
       </main>
     </div>

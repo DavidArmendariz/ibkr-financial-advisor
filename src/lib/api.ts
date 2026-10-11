@@ -6,6 +6,8 @@ import type {
   ChatMessage,
   ChatThread,
   ConnectionStatus,
+  GammaSettings,
+  GammaState,
   OHLCBar,
   Position,
   SignalSettings,
@@ -108,3 +110,12 @@ export const updateSignalSettings = (values: Partial<SignalSettings>) =>
 export function createSignalsSocket(): WebSocket {
   return new WebSocket('ws://localhost:8000/api/signals/ws')
 }
+
+// ── Gamma exposure ───────────────────────────────────────────────────────────
+
+export const getGammaState = () => http.get<GammaState>('/api/gamma/state').then((r) => r.data)
+
+export const refreshGamma = () => http.post<GammaState>('/api/gamma/refresh').then((r) => r.data)
+
+export const updateGammaSettings = (values: Partial<GammaSettings>) =>
+  http.put<GammaSettings>('/api/gamma/settings', values).then((r) => r.data)

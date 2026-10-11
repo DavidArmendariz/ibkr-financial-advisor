@@ -34,6 +34,20 @@ class SignalEvent(SQLModel, table=True):
     payload: str  # JSON: indicators, bars, llm decision, notified
 
 
+class OptionOpenInterest(SQLModel, table=True):
+    # IBKR only reports open interest while the market is open; the last value
+    # is kept so exposure can still be computed after hours and on weekends.
+    con_id: int = Field(primary_key=True)
+    open_interest: float
+    as_of: datetime
+
+
+class GammaSnapshot(SQLModel, table=True):
+    symbol: str = Field(primary_key=True, max_length=20)
+    updated_at: datetime
+    payload: str  # JSON: the last computed exposure
+
+
 _engine = None
 AsyncSessionLocal = None
 

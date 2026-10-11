@@ -65,7 +65,7 @@ export interface AppSettings {
   }
 }
 
-export type AppTab = 'dashboard' | 'chat' | 'signals' | 'settings'
+export type AppTab = 'dashboard' | 'chat' | 'signals' | 'gamma' | 'settings'
 
 export type RiskProfile = 'conservative' | 'moderate' | 'aggressive'
 
@@ -146,4 +146,58 @@ export interface SignalState {
   live: SignalLive
   history: SignalRecord[]
   settings: SignalSettings
+}
+
+export interface GammaStrike {
+  strike: number
+  call: number
+  put: number
+  net: number
+  call_oi: number
+  put_oi: number
+}
+
+export interface GammaExpiry {
+  expiry: string
+  call: number
+  put: number
+  net: number
+  call_oi: number
+  put_oi: number
+}
+
+export interface GammaResult {
+  symbol: string
+  updated_at: string
+  market_open: boolean
+  spot: number
+  net_gex: number
+  call_gex: number
+  put_gex: number
+  call_wall: number | null
+  put_wall: number | null
+  zero_gamma: number | null
+  strikes: GammaStrike[]
+  expiries: GammaExpiry[]
+  contracts: number
+  expirations: string[]
+  strike_range: [number, number]
+  open_interest: { live: number; cached: number; missing: number; cached_as_of: string | null }
+}
+
+export interface GammaSettings {
+  symbol: string
+  max_days: number
+  strike_range_pct: number
+  refresh_minutes: number
+  risk_free_rate: number
+}
+
+export interface GammaState {
+  refreshing: boolean
+  progress: { done: number; total: number }
+  error: string | null
+  result: GammaResult | null
+  settings: GammaSettings
+  connected: boolean
 }

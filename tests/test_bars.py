@@ -51,3 +51,14 @@ def test_five_minute_buckets():
     assert [b.time for b in emitted] == [t(30), t(35)]
     assert all(b.volume == 6000 for b in emitted)
     assert emitted[1].time - emitted[0].time == timedelta(minutes=5)
+
+
+def test_forming_bar_tracks_the_open_bucket():
+    agg = BarAggregator(1)
+    assert agg.forming() is None
+    agg.add(t(30, 0), 10.0, 10.2, 9.9, 10.1, 100)
+    agg.add(t(30, 5), 10.1, 10.4, 10.0, 10.3, 50)
+    forming = agg.forming()
+    assert (forming.time, forming.open, forming.high, forming.low, forming.close, forming.volume) == (
+        t(30), 10.0, 10.4, 9.9, 10.3, 150
+    )

@@ -93,12 +93,29 @@ export interface SignalIndicators {
   rvol: number | null
 }
 
+export interface SignalBar {
+  time: string // bar start
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
+export interface SignalChartPoint extends SignalBar, SignalIndicators {}
+
+export interface SignalChart {
+  timeframe_minutes: number
+  bars: SignalChartPoint[]
+}
+
 export interface SignalLive {
   last_price: number | null
   last_price_time: string | null
   bar_time: string | null
   bar_close: number | null
   indicators: SignalIndicators | null
+  forming: SignalBar | null
 }
 
 export interface LLMDecision {
@@ -144,6 +161,7 @@ export interface SignalSettings {
 export interface SignalState {
   status: SignalStatus
   live: SignalLive
+  chart: SignalChart
   history: SignalRecord[]
   settings: SignalSettings
 }

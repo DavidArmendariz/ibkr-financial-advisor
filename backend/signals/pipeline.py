@@ -10,6 +10,7 @@ from backend.signals.rules import LONG_ENTRY, cooldown_elapsed, in_blackout, is_
 from backend.signals.sessions import ET, SessionCalendar
 
 SNAPSHOT_BARS = 20
+CHART_BARS = 1500
 
 
 @dataclass
@@ -49,6 +50,7 @@ class SignalPipeline:
         self.last_fired: dict[str, datetime] = {}
         self.last_values = IndicatorValues()
         self.last_bar: Optional[Bar] = None
+        self.history: deque[tuple[Bar, IndicatorValues]] = deque(maxlen=CHART_BARS)
 
     def apply_settings(self, settings: SignalSettings) -> None:
         # Only for settings outside pipeline_key(); indicator changes need a new pipeline.
@@ -57,6 +59,7 @@ class SignalPipeline:
     def on_bar(self, bar: Bar, emit: bool = True) -> list[Candidate]:
         values = self.indicators.update(bar)
         self.bars.append(bar)
+        self.history.append((bar, values))
         self.last_bar, self.last_values = bar, values
         prev, self.prev = self.prev, (bar, values)
         if not emit or prev is None or prev[0].time.astimezone(ET).date() != bar.time.astimezone(ET).date():

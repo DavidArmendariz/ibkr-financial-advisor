@@ -140,3 +140,13 @@ def test_settings_validation(monkeypatch):
         save_signal_settings({"timeframe_minutes": 7})
     with pytest.raises(ValueError):
         save_signal_settings({"llm_confidence_threshold": 1.5})
+
+
+def test_pipeline_keeps_bars_with_their_indicator_values():
+    day = date(2026, 10, 6)
+    p = SignalPipeline(settings())
+    bars = rising_then_cross(day)
+    run(p, bars)
+    assert [b for b, _ in p.history] == bars
+    assert p.history[-1][1] == p.last_values
+    assert p.history[0][1].ema_fast is None and p.history[-1][1].ema_fast is not None

@@ -100,12 +100,25 @@ class SignalService:
             "bar_time": bar.time.isoformat() if bar else None,
             "bar_close": bar.close if bar else None,
             "indicators": p.last_values.to_dict() if p else None,
+            "forming": forming.to_dict() if (forming := self.aggregator.forming() if self.aggregator else None) else None,
         }
+
+    def chart(self) -> dict:
+        p = self.pipeline
+        return {
+            "timeframe_minutes": self.settings.timeframe_minutes,
+            "bars": [self._chart_point(bar, values) for bar, values in p.history] if p else [],
+        }
+
+    @staticmethod
+    def _chart_point(bar: Bar, values: Any) -> dict:
+        return {**bar.to_dict(), **values.to_dict()}
 
     def snapshot(self) -> dict:
         return {
             "status": self.status(),
             "live": self.live(),
+            "chart": self.chart(),
             "history": list(self.history),
             "settings": self.settings.model_dump(),
         }
@@ -206,6 +219,7 @@ class SignalService:
         self.rt_bars.updateEvent += self._on_realtime_bar
         self.stream = "streaming"
         self._broadcast_status()
+        self._broadcast({"type": "chart", "chart": self.chart()})
         self._broadcast({"type": "live", "live": self.live()})
 
     def _teardown(self) -> None:
@@ -251,7 +265,9 @@ class SignalService:
         self.last_price, self.last_price_time = rb.close, rb.time
         bar = self.aggregator.add(rb.time, rb.open_, rb.high, rb.low, rb.close, float(rb.volume))
         if bar is not None and self.pipeline is not None:
-            for candidate in self.pipeline.on_bar(bar):
+            candidates = self.pipeline.on_bar(bar)
+            self._broadcast({"type": "bar", "bar": self._chart_point(bar, self.pipeline.last_values)})
+            for candidate in candidates:
                 task = asyncio.create_task(self._handle_candidate(candidate))
                 self._pending.add(task)
                 task.add_done_callback(self._pending.discard)

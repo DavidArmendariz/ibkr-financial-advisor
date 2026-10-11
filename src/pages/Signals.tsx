@@ -1,12 +1,13 @@
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { LiveValues } from '@/components/signals/LiveValues'
+import { SignalChart } from '@/components/signals/SignalChart'
 import { SignalSettingsForm } from '@/components/signals/SignalSettingsForm'
 import { SignalStatusCards } from '@/components/signals/SignalStatusCards'
 import { SignalTable } from '@/components/signals/SignalTable'
 import { useSignals } from '@/hooks/useSignals'
 
 export function SignalsPage() {
-  const { status, live, history, settings, socketOpen, saveSettings } = useSignals()
+  const { status, live, history, settings, chart, socketOpen, saveSettings } = useSignals()
   const symbol = status?.symbol ?? settings?.symbol ?? 'SOXL'
 
   return (
@@ -20,6 +21,7 @@ export function SignalsPage() {
           </p>
         </div>
 
+        <SignalChart chart={chart} forming={live?.forming ?? null} signals={history} settings={settings} symbol={symbol} />
         <SignalStatusCards status={status} socketOpen={socketOpen} />
         <LiveValues live={live} settings={settings} symbol={symbol} />
 

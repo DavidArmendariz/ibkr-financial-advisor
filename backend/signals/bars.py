@@ -44,6 +44,11 @@ class BarAggregator:
             return self._flush() or emitted
         return emitted
 
+    def forming(self) -> Optional[Bar]:
+        if self._start is None:
+            return None
+        return Bar(self._start, self._open, self._high, self._low, self._close, self._volume)
+
     def _flush(self) -> Optional[Bar]:
         if self._start is None:
             return None

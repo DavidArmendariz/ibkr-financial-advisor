@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as api from '@/lib/api'
-import type { SignalLive, SignalRecord, SignalSettings, SignalStatus } from '@/types'
+import type { SignalChart, SignalLive, SignalRecord, SignalSettings, SignalStatus } from '@/types'
 
 const HISTORY_SIZE = 50
 const RECONNECT_MAX_MS = 15_000
@@ -10,6 +10,7 @@ export function useSignals() {
   const [live, setLive] = useState<SignalLive | null>(null)
   const [history, setHistory] = useState<SignalRecord[]>([])
   const [settings, setSettings] = useState<SignalSettings | null>(null)
+  const [chart, setChart] = useState<SignalChart | null>(null)
   const [socketOpen, setSocketOpen] = useState(false)
   const socketRef = useRef<WebSocket | null>(null)
 
@@ -33,6 +34,13 @@ export function useSignals() {
           setLive(data.live)
           setHistory(data.history)
           setSettings(data.settings)
+          setChart(data.chart)
+        } else if (data.type === 'chart') {
+          setChart(data.chart)
+        } else if (data.type === 'bar') {
+          setChart((prev) =>
+            prev ? { ...prev, bars: [...prev.bars.filter((b) => b.time !== data.bar.time), data.bar] } : prev,
+          )
         } else if (data.type === 'status') {
           setStatus(data.status)
         } else if (data.type === 'live') {
@@ -65,5 +73,5 @@ export function useSignals() {
     return saved
   }, [])
 
-  return { status, live, history, settings, socketOpen, saveSettings }
+  return { status, live, history, settings, chart, socketOpen, saveSettings }
 }

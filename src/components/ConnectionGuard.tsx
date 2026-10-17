@@ -50,7 +50,7 @@ export function ConnectionGuard({ status, loading, error, autoConnect, onConnect
           <div className="flex w-full flex-col gap-2">
             <Button className="w-full" onClick={() => onConnect()} disabled={loading}>
               <RefreshCw className="h-4 w-4" />
-              Auto-Connect (Paper / Live)
+              Auto-Connect (Paper)
             </Button>
             <div className="grid grid-cols-2 gap-2">
               <Button variant="outline" onClick={() => onConnect('paper')} disabled={loading}>

@@ -332,7 +332,7 @@ ibkr-financial-advisor/
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/api/connection/status` | Current TWS connection state |
-| `POST` | `/api/connection/auto-connect` | Try paper port, fall back to live (no-op if already connected) |
+| `POST` | `/api/connection/auto-connect` | Try the paper port only; never live (no-op if already connected) |
 | `POST` | `/api/connection/connect` | Connect to a specific mode (`paper`/`live`) |
 | `GET` | `/api/portfolio/summary` | Account tags (NLV, P&L, buying power) |
 | `GET` | `/api/portfolio/positions` | All open positions with market data |

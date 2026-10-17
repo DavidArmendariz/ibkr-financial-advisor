@@ -12,7 +12,7 @@ For any new feature or behavior change, use the OpenSpec workflow instead of edi
 2. `/opsx:apply` implements the tasks.
 3. `/opsx:archive` merges the delta specs into `openspec/specs/` and moves the change to `openspec/changes/archive/`.
 
-Small bug fixes that don't change specified behavior can skip the workflow. Validate with `openspec validate <change-name> --strict` or `openspec validate --specs --strict` (prefix the nvm PATH; without an argument it prompts interactively). Project context and per-artifact rules are in `openspec/config.yaml`.
+Small bug fixes that don't change specified behavior can skip the workflow. The CLI is a pinned dev dependency: run it as `npx openspec …`. Validate with `npx openspec validate <change-name> --strict` or `npx openspec validate --specs --strict` (without an argument it prompts interactively). Project context and per-artifact rules are in `openspec/config.yaml`.
 
 Decisions made before OpenSpec are in [docs/decisions.md](docs/decisions.md); new decisions belong in each change's `design.md`. User-facing setup and API reference live in README.md.
 
@@ -25,7 +25,7 @@ Decisions made before OpenSpec are in [docs/decisions.md](docs/decisions.md); ne
 
 ## Commands
 
-Node comes from nvm and isn't on PATH in non-interactive shells: prefix with `export PATH="$HOME/.nvm/versions/node/v24.14.0/bin:$PATH"`.
+Node comes from nvm. On the WSL machine `~/.zshenv` puts nvm's default Node on PATH for non-interactive shells; if `node` isn't found elsewhere, prefix with `export PATH="$HOME/.nvm/versions/node/v24.14.0/bin:$PATH"`.
 
 ```bash
 npm run dev                       # backend :8000 + Vite :5273 + Electron (predev kills a stale backend)
@@ -33,10 +33,11 @@ uv run pytest                     # backend tests
 npx tsc --noEmit -p .             # frontend typecheck
 npx vite build                    # frontend build
 uv run python -m backend.signals.replay --date YYYY-MM-DD [--llm]   # replay a session through the signal rules
+npx playwright install chromium   # once per machine: headless browser for UI checks
 npm run package:backend && npm run build && npx electron-builder --mac --dir   # local .app build
 ```
 
-Before calling work done: pytest, tsc and vite build pass, and UI changes are looked at in a browser. The renderer runs fine in Chrome at http://localhost:5273 (CORS allows it); clicks right after load can be swallowed while the app auto-connects, so wait a few seconds or click twice.
+Before calling work done: pytest, tsc and vite build pass, and UI changes are looked at in a browser. The renderer runs fine in Chrome at http://localhost:5273 (CORS allows it); clicks right after load can be swallowed while the app auto-connects, so wait a few seconds or click twice. For automated checks, drive it with Playwright (`require('@playwright/test').chromium` from a `node` script, run from the repo root so it resolves): locate controls by role/label and wait on them rather than sleeping, and keep scripts and screenshots in the scratchpad. Each launch gets a fresh `localStorage`, so it doesn't disturb the user's own browser state. macOS-only behavior (traffic lights, window dragging, Dock, notifications) still needs a check on the Mac.
 
 ## Conventions
 

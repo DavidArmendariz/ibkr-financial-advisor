@@ -16,8 +16,8 @@
 
 - [x] 3.1 Run `uv run pytest`, `npx tsc --noEmit -p .` and `npx vite build`; all pass
 - [x] 3.2 In the browser at http://localhost:5273: hide and show the sidebar on Dashboard, AI Advisor, Signals, Gamma and Settings; check that charts resize to the new width, the top bar shows the connection status, and a reload keeps the hidden state
-- [ ] 3.3 Check the macOS app (or note it as not checked when only WSL is available): the top bar clears the traffic lights and drags the window
-  - Not checked yet: only WSL was available during implementation (the hidden-state bar uses the same `drag-region` and `pl-20` as the sidebar header).
+- [x] 3.3 Check the macOS app (or note it as not checked when only WSL is available): the top bar clears the traffic lights and drags the window
+  - Checked by the user on macOS.
 
 ## Workflow follow-up
 

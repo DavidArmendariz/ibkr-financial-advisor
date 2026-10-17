@@ -4,7 +4,7 @@ Local-first macOS desktop app (Electron + React) with a Python FastAPI backend, 
 
 ## How changes are made: OpenSpec
 
-Behavior is specified in `openspec/specs/<capability>/spec.md` (ibkr-connection, portfolio-dashboard, ai-advisor, ai-provider-settings, signal-alerts, gamma-exposure, app-lifecycle). These are the source of truth for what the app does.
+Behavior is specified in `openspec/specs/<capability>/spec.md` (ibkr-connection, portfolio-dashboard, ai-advisor, ai-provider-settings, signal-alerts, gamma-exposure, app-lifecycle, app-navigation). These are the source of truth for what the app does.
 
 For any new feature or behavior change, use the OpenSpec workflow instead of editing code directly:
 

@@ -1,6 +1,7 @@
-import { BarChart2, Bot, Radar, Settings, Sigma } from 'lucide-react'
+import { BarChart2, Bot, PanelLeftClose, Radar, Settings, Sigma } from 'lucide-react'
+import { ConnectionIndicator } from '@/components/ConnectionIndicator'
 import { DeltaWitsMark } from '@/components/DeltaWitsMark'
-import { cn, formatCurrency, isMac, pnlClass } from '@/lib/utils'
+import { SIDEBAR_SHORTCUT, cn, formatCurrency, isMac, pnlClass } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
 import type { AccountSummary, AppTab, ConnectionStatus } from '@/types'
 
@@ -9,6 +10,7 @@ interface Props {
   onTabChange: (tab: AppTab) => void
   connectionStatus: ConnectionStatus
   summary: AccountSummary | null
+  onCollapse: () => void
 }
 
 const TABS: { id: AppTab; label: string; icon: React.ElementType }[] = [
@@ -19,7 +21,7 @@ const TABS: { id: AppTab; label: string; icon: React.ElementType }[] = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
-export function Sidebar({ activeTab, onTabChange, connectionStatus, summary }: Props) {
+export function Sidebar({ activeTab, onTabChange, connectionStatus, summary, onCollapse }: Props) {
   const nlv = summary?.NetLiquidation ?? null
   const unrealizedPnl = summary?.UnrealizedPnL ?? null
 
@@ -29,6 +31,14 @@ export function Sidebar({ activeTab, onTabChange, connectionStatus, summary }: P
       <div className={cn('drag-region flex h-12 items-center gap-2 px-4', isMac && 'pl-20')}>
         <DeltaWitsMark className="no-drag h-3.5 w-auto shrink-0 text-foreground" />
         <span className="no-drag text-sm font-semibold tracking-tight">DeltaAdvisor</span>
+        <button
+          onClick={onCollapse}
+          aria-label="Hide sidebar"
+          title={`Hide sidebar (${SIDEBAR_SHORTCUT})`}
+          className="no-drag ml-auto -mr-1 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+        >
+          <PanelLeftClose className="h-4 w-4" />
+        </button>
       </div>
 
       <Separator />
@@ -56,18 +66,7 @@ export function Sidebar({ activeTab, onTabChange, connectionStatus, summary }: P
 
       {/* Footer: connection status + NLV */}
       <div className="flex flex-col gap-2 p-3">
-        {/* Connection indicator */}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span
-            className={cn(
-              'h-2 w-2 rounded-full',
-              connectionStatus.connected ? 'bg-emerald-400 shadow-[0_0_6px_1px_rgba(52,211,153,0.6)]' : 'bg-red-500',
-            )}
-          />
-          {connectionStatus.connected
-            ? `Connected · ${connectionStatus.mode === 'paper' ? 'Paper' : 'Live'}`
-            : 'Disconnected'}
-        </div>
+        <ConnectionIndicator status={connectionStatus} />
 
         {/* Net Liquidation Value */}
         {nlv !== null && (

@@ -19,4 +19,4 @@ rules:
     - For each decision, name the alternative considered and why it lost.
     - Note any IBKR data permission, pacing, or market-hours dependency.
   tasks:
-    - Include verification tasks: uv run pytest, npx tsc --noEmit -p ., npx vite build, and a visual check of changed views.
+    - "Include verification tasks: uv run pytest, npx tsc --noEmit -p ., npx vite build, and a visual check of changed views."

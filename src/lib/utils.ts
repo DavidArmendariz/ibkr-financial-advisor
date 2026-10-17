@@ -43,3 +43,13 @@ declare global {
 // The window uses titleBarStyle "hiddenInset", so on macOS the traffic-light
 // buttons are drawn over the top-left of the page and need room reserved.
 export const isMac = window.electronAPI?.platform === 'darwin'
+
+// isMac only covers the Electron app; the shortcut follows the OS in the browser too.
+const macKeyboard = isMac || /Mac/.test(navigator.platform)
+export const SIDEBAR_SHORTCUT = macKeyboard ? '⌘B' : 'Ctrl+B'
+export const isSidebarShortcut = (e: KeyboardEvent) =>
+  (macKeyboard ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey) &&
+  // Shift/Alt combinations stay with the browser (Ctrl+Shift+B is its bookmarks bar).
+  !e.shiftKey &&
+  !e.altKey &&
+  e.key.toLowerCase() === 'b'

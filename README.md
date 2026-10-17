@@ -35,7 +35,8 @@ Built with Electron + React on the frontend and a Python FastAPI backend. The ap
 - On launch, auto-connects to a **paper** TWS / IB Gateway session on `127.0.0.1:7497`, connecting read-only. Live (`7496`) is never connected automatically; use the **Live** button on the lock screen
 - If an established connection drops (for example during TWS or IB Gateway's daily restart), the backend reconnects on its own, retrying with increasing waits up to 60 seconds, and the Signals stream resubscribes
 - While disconnected, shows a lock screen with setup instructions and keeps retrying paper every 10 seconds, so the app connects on its own once TWS is started
-- Live connection indicator and Net Liquidation Value always visible in the sidebar footer
+- Live connection indicator and Net Liquidation Value in the sidebar footer
+- Hide the sidebar for more room with the button in its header or **Cmd+B** (**Ctrl+B** on Windows/Linux); a slim top bar keeps the connection indicator visible and brings the sidebar back. The choice is remembered across launches
 
 ---
 

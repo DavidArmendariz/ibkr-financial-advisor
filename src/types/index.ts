@@ -65,7 +65,7 @@ export interface AppSettings {
   }
 }
 
-export type AppTab = 'dashboard' | 'chat' | 'signals' | 'gamma' | 'settings'
+export type AppTab = 'dashboard' | 'chat' | 'signals' | 'gamma' | 'macro' | 'settings'
 
 export type RiskProfile = 'conservative' | 'moderate' | 'aggressive'
 
@@ -218,4 +218,36 @@ export interface GammaState {
   result: GammaResult | null
   settings: GammaSettings
   connected: boolean
+}
+
+// ── Macro ────────────────────────────────────────────────────────────────────
+
+export type MacroFreshness = 'live' | 'delayed' | 'closed' | 'daily'
+
+export interface MacroIndicator {
+  key: string
+  label: string
+  unit: string
+  change_mode: 'pct' | 'bp'
+  decimals: number
+  contract: string | null
+  contract_month: string | null // YYYYMM, futures only
+  value: number | null
+  previous_close: number | null
+  change: number | null
+  change_pct: number | null
+  change_bp: number | null
+  market_open: boolean
+  freshness: MacroFreshness
+  valid_from: string | null // YYYY-MM-DD, daily rates only
+  valid_to: string | null
+  updated_at: string | null
+  stale: boolean
+  error: string | null
+  sparkline: { time: number; value: number }[]
+}
+
+export interface MacroState {
+  connected: boolean
+  indicators: MacroIndicator[]
 }

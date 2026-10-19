@@ -8,6 +8,7 @@ import type {
   ConnectionStatus,
   GammaSettings,
   GammaState,
+  MacroState,
   OHLCBar,
   Position,
   SignalSettings,
@@ -119,3 +120,7 @@ export const refreshGamma = () => http.post<GammaState>('/api/gamma/refresh').th
 
 export const updateGammaSettings = (values: Partial<GammaSettings>) =>
   http.put<GammaSettings>('/api/gamma/settings', values).then((r) => r.data)
+
+// ── Macro ────────────────────────────────────────────────────────────────────
+
+export const getMacroState = () => http.get<MacroState>('/api/macro/state').then((r) => r.data)

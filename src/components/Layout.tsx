@@ -7,6 +7,7 @@ import { ChatPage } from '@/pages/Chat'
 import { SettingsPage } from '@/pages/Settings'
 import { SignalsPage } from '@/pages/Signals'
 import { GammaPage } from '@/pages/Gamma'
+import { MacroPage } from '@/pages/Macro'
 import { usePortfolio } from '@/hooks/usePortfolio'
 import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
 import { SIDEBAR_SHORTCUT, cn, isMac, isSidebarShortcut } from '@/lib/utils'
@@ -80,6 +81,7 @@ export function Layout({ activeTab, onTabChange, connectionStatus, onDisconnect 
           {activeTab === 'chat' && <ChatPage onOpenSettings={() => onTabChange('settings')} />}
           {activeTab === 'signals' && <SignalsPage />}
           {activeTab === 'gamma' && <GammaPage />}
+          {activeTab === 'macro' && <MacroPage />}
           {activeTab === 'settings' && <SettingsPage />}
         </main>
       </div>

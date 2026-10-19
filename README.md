@@ -31,6 +31,13 @@ Built with Electron + React on the frontend and a Python FastAPI backend. The ap
 - The **Signals** view shows the IBKR connection, market data and LLM filter status, live indicator values, the last 50 signals with their LLM decisions, and all settings (applied live, no restart)
 - Alerts only: no orders are placed
 
+**Macro**
+- Crude oil (NYMEX WTI front-month future), gold (COMEX GC), S&P 500 futures (CME ES), Nasdaq 100 futures (CME NQ), Dow futures (CBOT YM), the US 10-year Treasury yield (CBOE TNX, shown in % with the change in basis points), the VIX (CBOE index), USD/COP, and the S&P 500 (SPX), Nasdaq 100 (NDX) and Dow Jones (INDU) spot indexes
+- USD/COP is Banco de la República's official daily rate (TRM) from Colombia's open-data portal, since IBKR doesn't offer the Colombian peso; the card shows the dates the rate is valid for and the last 30 rates
+- Each card shows the last value, the change since the previous close, a sparkline of the latest session, the futures contract month, and whether the value is live, delayed or the last close (market closed)
+- Futures roll to the next month on their own, following IBKR's continuous contract
+- Works without futures subscriptions using IBKR's free delayed data, labelled as delayed
+
 **TWS Connection Guard**
 - On launch, auto-connects to a **paper** TWS / IB Gateway session on `127.0.0.1:7497`, connecting read-only. Live (`7496`) is never connected automatically; use the **Live** button on the lock screen
 - If an established connection drops (for example during TWS or IB Gateway's daily restart), the backend reconnects on its own, retrying with increasing waits up to 60 seconds, and the Signals stream resubscribes
@@ -170,6 +177,12 @@ The Signals view needs **real-time** market data for SOXL, which trades on NYSE 
 - Subscribe to a market data package that covers NYSE Arca for API use, from the market data subscriptions page in the IBKR Client Portal. TWS's **Market Data Connections** dialog (linked from the error) shows what's missing.
 - For a **paper** account, also turn on sharing of the live account's market data with the paper account (in the Client Portal's paper trading account settings). Paper accounts have no subscriptions of their own.
 
+### 7. Market data for Macro
+
+Real-time values need API-eligible subscriptions for **NYMEX** (crude oil), **COMEX** (gold), **CME** (ES, NQ), **CBOT** (YM), **CBOE Streaming Market Indexes** (TNX, VIX, SPX), **Nasdaq indexes** (NDX) and **CME indexes** (the Dow Jones index), shared to paper like the Signals data. Without CME index data IBKR refuses even the Dow index's historical bars, so that card shows the error. Without them the Macro view uses IBKR's free delayed data (10–15 minutes behind) and labels each card as delayed. Delayed data streams nothing while a market is closed, so the cards then show the last daily close and its change from the close before. Without subscriptions nothing streams even while markets are open, so values move with the 5-minute bar refresh and run about 10–15 minutes behind.
+
+USD/COP doesn't come from IBKR: the backend fetches the TRM from `https://www.datos.gov.co/resource/32sa-8pi3.json` (public, no key) once an hour, or every 5 minutes after a failure. The request carries only the dataset query.
+
 ---
 
 ## Running in Development
@@ -280,10 +293,15 @@ ibkr-financial-advisor/
 │   │   ├── portfolio.py  # GET /summary, /positions, /snapshot, /chart/:symbol
 │   │   ├── chat.py       # REST thread CRUD + WS /ws/:thread_id streaming
 │   │   ├── settings.py   # AI provider selection, Anthropic key, OpenAI-compatible config
-│   │   └── signals.py    # GET /state, PUT /settings, WS /ws
+│   │   ├── signals.py    # GET /state, PUT /settings, WS /ws
+│   │   └── macro.py      # GET /state
 │   ├── services/
 │   │   ├── ibkr_service.py   # ib_async singleton; connect, auto-reconnect, positions, bars
 │   │   └── ai_service.py     # Advisor prompt (risk profiles, charts) + Anthropic / OpenAI-compatible streaming
+│   ├── macro/
+│   │   ├── indicators.py     # Indicator list (futures, indexes, TRM), change math, trading hours
+│   │   ├── trm.py            # Official USD/COP rate (TRM) from datos.gov.co
+│   │   └── service.py        # Front-month resolution, quote streams, sparkline + daily bars
 │   └── signals/
 │       ├── service.py        # Warm-up, real-time bar subscription, LLM filtering, broadcasting
 │       ├── pipeline.py       # Bars → indicators → rules → signal snapshots (shared with replay)
@@ -309,7 +327,8 @@ ibkr-financial-advisor/
     │   ├── useConnection.ts  # Polls /api/connection/status every 10 s
     │   ├── usePortfolio.ts   # Polls summary + positions every 15 s
     │   ├── useChat.ts        # Thread CRUD + WebSocket streaming state
-    │   └── useSignals.ts     # Signals WebSocket: status, live values, history, settings
+    │   ├── useSignals.ts     # Signals WebSocket: status, live values, history, settings
+    │   └── useMacro.ts       # Polls /api/macro/state every 3 s while the Macro view is open
     ├── components/
     │   ├── ConnectionGuard.tsx
     │   ├── Sidebar.tsx
@@ -318,11 +337,13 @@ ibkr-financial-advisor/
     │   ├── ui/               # Shadcn primitives (button, card, dialog, …)
     │   ├── dashboard/        # AccountSummary, PositionsTable, TradingChart
     │   ├── chat/             # Session list, chat window, markdown + chart rendering, risk profile select
-    │   └── signals/          # Status cards, live values, signal table, settings form
+    │   ├── signals/          # Status cards, live values, signal table, settings form
+    │   └── macro/            # Indicator card, sparkline
     └── pages/
         ├── Dashboard.tsx
         ├── Chat.tsx
         ├── Signals.tsx
+        ├── Macro.tsx
         └── Settings.tsx
 ```
 
@@ -351,6 +372,7 @@ ibkr-financial-advisor/
 | `GET` | `/api/signals/state` | Signal status, live indicator values, last 50 signals, and settings |
 | `PUT` | `/api/signals/settings` | Update any subset of signal settings; applied live |
 | `WS` | `/api/signals/ws` | Signal event stream (see below) |
+| `GET` | `/api/macro/state` | `connected` and one entry per macro indicator: `value`, `previous_close`, `change`, `change_pct` / `change_bp`, `freshness` (`live` / `delayed` / `closed`, or `daily` for the TRM), `contract`, `contract_month`, `valid_from` / `valid_to` (TRM), `updated_at`, `stale`, `error`, `sparkline` |
 
 ---
 

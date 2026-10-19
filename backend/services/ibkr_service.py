@@ -2,7 +2,7 @@ import asyncio
 import calendar
 from datetime import datetime
 from typing import Optional
-from ib_async import IB, Stock, Forex
+from ib_async import IB, Contract, Stock, Forex
 
 from backend.config import get_settings
 
@@ -176,16 +176,20 @@ def _bar_time(value) -> float:
 
 
 async def get_historical_bars(
-    symbol: str,
+    symbol: str | Contract,
     duration: str = "1 D",
     bar_size: str = "5 mins",
     what_to_show: str = "TRADES",
+    use_rth: bool = True,
 ) -> list[dict]:
     if not ibkr.isConnected():
         return []
 
-    contract = Stock(symbol, "SMART", "USD")
-    await ibkr.qualifyContractsAsync(contract)
+    if isinstance(symbol, Contract):
+        contract = symbol
+    else:
+        contract = Stock(symbol, "SMART", "USD")
+        await ibkr.qualifyContractsAsync(contract)
 
     bars = await ibkr.reqHistoricalDataAsync(
         contract,
@@ -193,7 +197,7 @@ async def get_historical_bars(
         durationStr=duration,
         barSizeSetting=bar_size,
         whatToShow=what_to_show,
-        useRTH=True,
+        useRTH=use_rth,
         formatDate=1,
     )
 

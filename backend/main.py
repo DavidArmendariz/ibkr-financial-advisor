@@ -7,7 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.config import get_settings
 from backend.database import create_db_and_tables
 from backend.gamma.service import gamma_service
-from backend.routers import connection, portfolio, chat, gamma, settings, signals
+from backend.macro.service import macro_service
+from backend.routers import connection, portfolio, chat, gamma, macro, settings, signals
 from backend.services import ibkr_service
 from backend.services.ibkr_service import ibkr
 from backend.signals.service import signal_service
@@ -23,7 +24,9 @@ async def lifespan(app: FastAPI):
     supervisor = asyncio.create_task(ibkr_service.supervise())
     await signal_service.start()
     await gamma_service.start()
+    await macro_service.start()
     yield
+    await macro_service.stop()
     await gamma_service.stop()
     supervisor.cancel()
     await signal_service.stop()
@@ -48,6 +51,7 @@ app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 app.include_router(signals.router, prefix="/api/signals", tags=["signals"])
 app.include_router(gamma.router, prefix="/api/gamma", tags=["gamma"])
+app.include_router(macro.router, prefix="/api/macro", tags=["macro"])
 
 
 @app.get("/api/health")

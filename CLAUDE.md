@@ -58,6 +58,7 @@ Before calling work done: pytest, tsc and vite build pass, and UI changes are lo
 - **Option open interest only arrives while the market is open**; after hours ~1 in 8 contracts report it. The gamma service caches OI in SQLite (`OptionOpenInterest`).
 - Max ~100 simultaneous market data lines: batch option requests (gamma uses 80).
 - The gamma service calls `reqMarketDataType(2)` (frozen) on the shared connection; that also affects other `reqMktData` users.
+- The macro service calls `reqMarketDataType(4)` (delayed-frozen) before subscribing its futures and indexes. The type applies to requests made after it, so set your own right before any new `reqMktData`. Delayed data streams nothing while a market is closed.
 - Error 322 (too many account summary requests) shows up from the Dashboard's 15 s polling; `accountSummaryAsync` / `reqPositionsAsync` have no timeout.
 - One-off scripts must use their own client ID (the app uses `IBKR_CLIENT_ID`, default 1; replay uses +50).
 

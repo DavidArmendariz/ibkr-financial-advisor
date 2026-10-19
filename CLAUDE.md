@@ -1,10 +1,10 @@
 # DeltaAdvisor
 
-Local-first macOS desktop app (Electron + React) with a Python FastAPI backend, connected to Interactive Brokers through TWS / IB Gateway. Features: portfolio dashboard, AI Advisor chat, SOXL real-time signal alerts, SOXL gamma exposure. **It never places orders.**
+Local-first macOS desktop app (Electron + React) with a Python FastAPI backend, connected to Interactive Brokers through TWS / IB Gateway. Features: portfolio dashboard, AI Advisor chat, SOXL real-time signal alerts, SOXL gamma exposure, macro indicators. **It never places orders.**
 
 ## How changes are made: OpenSpec
 
-Behavior is specified in `openspec/specs/<capability>/spec.md` (ibkr-connection, portfolio-dashboard, ai-advisor, ai-provider-settings, signal-alerts, gamma-exposure, app-lifecycle, app-navigation). These are the source of truth for what the app does.
+Behavior is specified in `openspec/specs/<capability>/spec.md` (ibkr-connection, portfolio-dashboard, ai-advisor, ai-provider-settings, signal-alerts, gamma-exposure, macro-indicators, app-lifecycle, app-navigation). These are the source of truth for what the app does.
 
 For any new feature or behavior change, use the OpenSpec workflow instead of editing code directly:
 
@@ -19,7 +19,7 @@ Decisions made before OpenSpec are in [docs/decisions.md](docs/decisions.md); ne
 ## Layout
 
 - `electron/` — main process (`main.cjs`: spawns the packaged backend, quit/crash handling, dev Dock icon), `preload.cjs` (contextBridge), `signal-notifications.cjs` (native notifications from the signals WebSocket).
-- `backend/` — FastAPI app. `services/ibkr_service.py` holds the single shared `ib_async` connection and the reconnect supervisor. `signals/` (pipeline, indicators, rules, LLM filter, replay CLI), `gamma/` (exposure calc + chain fetching), `routers/` (one per feature), `database.py` (SQLModel tables).
+- `backend/` — FastAPI app. `services/ibkr_service.py` holds the single shared `ib_async` connection and the reconnect supervisor. `signals/` (pipeline, indicators, rules, LLM filter, replay CLI), `gamma/` (exposure calc + chain fetching), `macro/` (macro indicator quotes + official USD/COP rate), `routers/` (one per feature), `database.py` (SQLModel tables).
 - `src/` — React 18 renderer. Views are `pages/*.tsx`, switched in `components/Layout.tsx` via the `AppTab` union in `types/index.ts` and the list in `components/Sidebar.tsx`. Each feature has a `hooks/use*.ts` and components under `components/<feature>/`.
 - `tests/` — pytest suite (backend only).
 

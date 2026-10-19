@@ -31,6 +31,8 @@ INFO_CODES = {2100, 2104, 2106, 2107, 2108, 2119, 2158}
 # Historical data errors only cost the sparkline; the quote keeps streaming.
 HISTORICAL_CODES = {162, 165, 366}
 DATA_ERROR_CODES = {200, 354, 420, 10089, 10090, 10168, 10197}
+# 162 also covers pacing and empty answers, which pass; a missing subscription doesn't.
+NO_PERMISSION = "No market data permissions"
 
 
 @dataclass
@@ -44,6 +46,8 @@ class Slot:
     error: Optional[str] = None
     # Refused historical data only matters when the card has no other value.
     bars_error: Optional[str] = None
+    # Not asked again until the next connection, where permissions can differ.
+    bars_denied: bool = False
     retry_at: Optional[datetime] = None
     bars_at: Optional[datetime] = None
     spark: list[dict] = field(default_factory=list)
@@ -164,7 +168,7 @@ class MacroService:
                 await self._resolve(slot, now)
             if slot.ticker is None:
                 self._subscribe(slot)
-            if slot.bars_at is None or now - slot.bars_at >= BARS_INTERVAL:
+            if not slot.bars_denied and (slot.bars_at is None or now - slot.bars_at >= BARS_INTERVAL):
                 slot.bars_at = now
                 await self._refresh_bars(slot)
         except asyncio.CancelledError:
@@ -216,7 +220,9 @@ class MacroService:
     async def _refresh_bars(self, slot: Slot) -> None:
         # Futures trade almost around the clock, so the "session" includes the overnight hours.
         spark = await ibkr_service.get_historical_bars(slot.contract, "1 D", "5 mins", "TRADES", use_rth=False)
-        daily = await ibkr_service.get_historical_bars(slot.contract, "5 D", "1 day", "TRADES", use_rth=False)
+        if slot.bars_denied:
+            return
+        daily =await ibkr_service.get_historical_bars(slot.contract, "5 D", "1 day", "TRADES", use_rth=False)
         # Keep the previous bars on an empty answer so a transient error doesn't blank the card.
         if spark:
             slot.spark = spark
@@ -231,6 +237,7 @@ class MacroService:
         for slot in self.slots:
             slot.ticker = None
             slot.resolved_at = None
+            slot.bars_denied = False
 
     def _on_error(self, req_id: int, code: int, message: str, contract: Any) -> None:
         if code in INFO_CODES or code == 10167:  # 10167: delayed data instead, shown as such
@@ -244,6 +251,8 @@ class MacroService:
             return
         if code in HISTORICAL_CODES:
             slot.bars_error = f"IBKR error {code}: {message.removeprefix('Historical Market Data Service error message:')}"
+            if code == 162 and NO_PERMISSION in message:
+                slot.bars_denied = True
         elif code in DATA_ERROR_CODES:
             slot.error = f"IBKR error {code}: {message}"
             self._unsubscribe(slot)

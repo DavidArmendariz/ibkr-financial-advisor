@@ -167,6 +167,60 @@ async def test_refused_data_shows_error_and_retries_later(svc):
     assert ib.calls[-1] == ("cancel", 1001)  # waits RETRY_INTERVAL before resubscribing
 
 
+DENIED = "Historical Market Data Service error message:No market data permissions for CME IND"
+
+
+@pytest.fixture
+def bar_requests(svc, monkeypatch):
+    service, _ = svc
+    requests = []
+
+    # IBKR's error arrives while the request is still pending.
+    async def record(contract, *args, **kwargs):
+        requests.append(contract.conId)
+        if service.deny_history:
+            service._on_error(7, 162, DENIED, contract)
+        return []
+
+    service.deny_history = False
+    monkeypatch.setattr(macro.ibkr_service, "get_historical_bars", record)
+    return requests
+
+
+def _bars_due(service):
+    service.slots[0].bars_at -= macro.BARS_INTERVAL
+
+
+async def test_history_without_permission_is_not_requested_again(svc, bar_requests):
+    service, ib = svc
+    service.deny_history = True
+    await service._tick()
+    assert len(bar_requests) == 1  # the daily request isn't sent after the denial
+    _bars_due(service)
+    await service._tick()
+    assert len(bar_requests) == 1
+    assert service.state()["indicators"][0]["error"] == "IBKR error 162: No market data permissions for CME IND"
+
+
+async def test_other_history_errors_keep_retrying(svc, bar_requests):
+    service, ib = svc
+    await service._tick()
+    service._on_error(7, 162, "Historical Market Data Service error message:HMDS query returned no data", service.slots[0].contract)
+    _bars_due(service)
+    await service._tick()
+    assert len(bar_requests) == 4
+
+
+async def test_history_permission_rechecked_after_reconnect(svc, bar_requests):
+    service, ib = svc
+    await service._tick()
+    service._on_error(7, 162, DENIED, service.slots[0].contract)
+    service._on_disconnected()
+    _bars_due(service)
+    await service._tick()
+    assert len(bar_requests) == 4
+
+
 def _slot(**kwargs):
     slot = macro.Slot(CRUDE, contract=Future(conId=1001, localSymbol="CLZ6"), **kwargs)
     return macro.MacroService([CRUDE]), slot

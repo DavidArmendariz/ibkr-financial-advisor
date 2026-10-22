@@ -47,7 +47,14 @@ export function Layout({ activeTab, onTabChange, connectionStatus, onDisconnect 
         />
       )}
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="relative flex flex-1 flex-col overflow-hidden">
+        {/* Lets the window be dragged from the top of the content too, like a native
+            title bar. Pointer events pass through, and Electron subtracts the no-drag
+            controls that come after it in the DOM, so page header buttons stay clickable. */}
+        {!sidebar.collapsed && (
+          <div aria-hidden className="drag-region pointer-events-none absolute inset-x-0 top-0 z-10 h-12" />
+        )}
+
         {/* Stands in for the sidebar header: window drag region, room for the macOS
             traffic lights, and the connection status, which must stay visible. */}
         {sidebar.collapsed && (

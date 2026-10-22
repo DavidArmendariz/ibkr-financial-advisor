@@ -74,7 +74,14 @@ body {
 .drag-region {
   -webkit-app-region: drag;
 }
-.no-drag {
+.no-drag,
+button,
+a,
+input,
+select,
+textarea,
+[role='button'],
+[role='tab'] {
   -webkit-app-region: no-drag;
 }
 

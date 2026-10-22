@@ -127,6 +127,19 @@ async def get_account_summary() -> dict:
     return result
 
 
+SNAPSHOT_TIMEOUT = 5.0
+
+
+# A snapshot for a contract without a market data subscription (10168) never
+# completes, so one unsubscribed position would hang the whole positions request.
+async def _snapshot(contract: Contract):
+    try:
+        tickers = await asyncio.wait_for(ibkr.reqTickersAsync(contract), SNAPSHOT_TIMEOUT)
+    except asyncio.TimeoutError:
+        return None
+    return tickers[0] if tickers else None
+
+
 async def get_positions() -> list[dict]:
     if not ibkr.isConnected():
         return []
@@ -153,7 +166,7 @@ async def get_positions() -> list[dict]:
     if result:
         contracts = [pos.contract for pos in positions]
         try:
-            tickers = await ibkr.reqTickersAsync(*contracts)
+            tickers = await asyncio.gather(*(_snapshot(c) for c in contracts))
             for i, ticker in enumerate(tickers):
                 if ticker and ticker.last and ticker.last > 0:
                     result[i]["market_price"] = ticker.last

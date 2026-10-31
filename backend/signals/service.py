@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from ib_async import Stock
+from sqlalchemy import and_, or_
 from sqlmodel import select
 
 from backend import database
@@ -322,19 +323,40 @@ class SignalService:
     async def _load_history(self) -> None:
         async with database.AsyncSessionLocal() as session:
             rows = await session.exec(select(SignalEvent).order_by(SignalEvent.time.desc()).limit(HISTORY_SIZE))
-            for row in rows.all():
-                payload = json.loads(row.payload)
-                time = row.time if row.time.tzinfo else row.time.replace(tzinfo=timezone.utc)
-                self.history.append(
-                    {
-                        "id": row.id,
-                        "time": time.isoformat(),
-                        "symbol": row.symbol,
-                        "signal_type": row.signal_type,
-                        "price": row.price,
-                        **payload,
-                    }
-                )
+            self.history.extend(self._record(row) for row in rows.all())
+
+    @staticmethod
+    def _record(row: SignalEvent) -> dict:
+        time = row.time if row.time.tzinfo else row.time.replace(tzinfo=timezone.utc)
+        return {
+            "id": row.id,
+            "time": time.isoformat(),
+            "symbol": row.symbol,
+            "signal_type": row.signal_type,
+            "price": row.price,
+            **json.loads(row.payload),
+        }
+
+    async def history_page(self, limit: int, signal_type: Optional[str] = None, before: Optional[str] = None) -> dict:
+        query = select(SignalEvent).order_by(SignalEvent.time.desc(), SignalEvent.id.desc())
+        if signal_type:
+            query = query.where(SignalEvent.signal_type == signal_type)
+        if before:
+            # Triggers on one bar share a time, so the id breaks the tie at a page boundary.
+            time_text, _, row_id = before.partition("|")
+            time = datetime.fromisoformat(time_text)
+            query = query.where(
+                or_(SignalEvent.time < time, and_(SignalEvent.time == time, SignalEvent.id < row_id))
+            )
+        async with database.AsyncSessionLocal() as session:
+            rows = (await session.exec(query.limit(limit + 1))).all()
+        page = rows[:limit]
+        last = page[-1] if len(rows) > limit else None
+        return {
+            # The table doesn't show the snapshot bars, and they'd bloat every poll.
+            "signals": [{k: v for k, v in self._record(row).items() if k != "bars"} for row in page],
+            "next_cursor": f"{last.time.isoformat()}|{last.id}" if last else None,
+        }
 
 
 signal_service = SignalService()

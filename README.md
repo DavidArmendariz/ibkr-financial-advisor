@@ -40,6 +40,10 @@ Built with Electron + React on the frontend and a Python FastAPI backend. The ap
 - The **Signals** view shows the IBKR connection, market data and LLM filter status, live indicator values, the last 50 signals with their LLM decisions, and all settings (applied live, no restart)
 - Alerts only: no orders are placed
 
+**Signal History**
+- Every saved signal, newest first, including those the LLM filter skipped, with its trigger, category, price, indicators, LLM decision and whether it notified you
+- Filter by trigger, and load older signals 100 at a time. New signals appear at the top within 15 seconds
+
 **Macro**
 - Crude oil (NYMEX WTI front-month future), gold (COMEX GC), S&P 500 futures (CME ES), Nasdaq 100 futures (CME NQ), Dow futures (CBOT YM), the US 10-year Treasury yield (CBOE TNX, shown in % with the change in basis points), the VIX (CBOE index), USD/COP, and the S&P 500 (SPX), Nasdaq 100 (NDX) and Dow Jones (INDU) spot indexes
 - USD/COP is Banco de la República's official daily rate (TRM) from Colombia's open-data portal, since IBKR doesn't offer the Colombian peso; the card shows the dates the rate is valid for and the last 30 rates
@@ -306,7 +310,7 @@ ibkr-financial-advisor/
 │   │   ├── orders.py     # GET /open
 │   │   ├── chat.py       # REST thread CRUD + WS /ws/:thread_id streaming
 │   │   ├── settings.py   # AI provider selection, Anthropic key, OpenAI-compatible config
-│   │   ├── signals.py    # GET /state, PUT /settings, WS /ws
+│   │   ├── signals.py    # GET /state, GET /history, PUT /settings, WS /ws
 │   │   └── macro.py      # GET /state
 │   ├── services/
 │   │   ├── ibkr_service.py   # ib_async singleton; connect, auto-reconnect, positions, bars
@@ -342,6 +346,7 @@ ibkr-financial-advisor/
     │   ├── useChat.ts        # Thread CRUD + WebSocket streaming state
     │   ├── useSignals.ts     # Signals WebSocket: status, live values, history, settings
     │   ├── useMacro.ts       # Polls /api/macro/state every 3 s while the Macro view is open
+    │   ├── useSignalHistory.ts # Pages through saved signals, polling for new ones every 15 s while open
     │   └── useOpenOrders.ts  # Polls /api/orders/open every 15 s while the Orders view is open
     ├── components/
     │   ├── ConnectionGuard.tsx
@@ -359,6 +364,7 @@ ibkr-financial-advisor/
         ├── Orders.tsx
         ├── Chat.tsx
         ├── Signals.tsx
+        ├── SignalHistory.tsx
         ├── Macro.tsx
         └── Settings.tsx
 ```
@@ -386,6 +392,7 @@ ibkr-financial-advisor/
 | `PUT` | `/api/settings/anthropic-api-key` | Verify a key with Anthropic and save it (`{"api_key":"…"}`) |
 | `PUT` | `/api/settings/openai-compatible` | Verify and save `{"base_url","model","api_key"}` (omit `api_key` to keep the saved one, `""` to clear it) |
 | `GET` | `/api/signals/state` | Signal status, live indicator values, last 50 signals, and settings |
+| `GET` | `/api/signals/history` | Saved signals, newest first (`?type=EMA_CROSS&before=<next_cursor>&limit=100`), with `next_cursor` for the next page |
 | `PUT` | `/api/signals/settings` | Update any subset of signal settings; applied live |
 | `WS` | `/api/signals/ws` | Signal event stream (see below) |
 | `GET` | `/api/orders/open` | `available` (`false` if TWS refused or didn't answer) and `orders`, one entry per open order; 503 when not connected |

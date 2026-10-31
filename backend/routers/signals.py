@@ -1,10 +1,11 @@
 import asyncio
-from typing import Any
+from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
 from backend.signals.config import SignalSettings, save_signal_settings
+from backend.signals.rules import TRIGGERS
 from backend.signals.service import signal_service
 
 router = APIRouter()
@@ -15,6 +16,20 @@ EDITABLE = set(SignalSettings.model_fields) - {"symbol"}
 @router.get("/state")
 async def get_state():
     return signal_service.snapshot()
+
+
+@router.get("/history")
+async def get_history(
+    limit: int = Query(default=100, ge=1, le=100),
+    type: Optional[str] = None,
+    before: Optional[str] = None,
+):
+    if type is not None and type not in {t.signal_type for t in TRIGGERS}:
+        raise HTTPException(status_code=422, detail=f"Unknown signal type: {type}")
+    try:
+        return await signal_service.history_page(limit, type, before)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid cursor")
 
 
 @router.put("/settings")

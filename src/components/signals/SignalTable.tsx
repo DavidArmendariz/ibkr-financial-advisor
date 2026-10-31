@@ -1,7 +1,7 @@
 import { Bell, BellOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fmtPrice, fmtRatio, fmtTimeET } from './format'
-import type { LLMDecision, SignalRecord } from '@/types'
+import type { LLMDecision, SignalHistoryRecord } from '@/types'
 
 const DECISION_STYLE: Record<LLMDecision['action'], string> = {
   take: 'bg-emerald-500/15 text-emerald-400',
@@ -18,7 +18,7 @@ function Decision({ llm }: { llm: LLMDecision }) {
   )
 }
 
-export function SignalTable({ signals }: { signals: SignalRecord[] }) {
+export function SignalTable({ signals }: { signals: SignalHistoryRecord[] }) {
   if (signals.length === 0) {
     return (
       <div className="rounded-lg border border-border py-10 text-center text-sm text-muted-foreground">

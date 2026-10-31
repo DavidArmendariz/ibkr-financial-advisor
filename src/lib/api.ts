@@ -12,6 +12,7 @@ import type {
   OHLCBar,
   OpenOrdersState,
   Position,
+  SignalHistoryPage,
   SignalSettings,
   SignalState,
 } from '@/types'
@@ -110,6 +111,11 @@ export function createChatSocket(threadId: string): WebSocket {
 // ── Signals ──────────────────────────────────────────────────────────────────
 
 export const getSignalState = () => http.get<SignalState>('/api/signals/state').then((r) => r.data)
+
+export const getSignalHistory = (type: string | null, before?: string) =>
+  http
+    .get<SignalHistoryPage>('/api/signals/history', { params: { type: type ?? undefined, before } })
+    .then((r) => r.data)
 
 export const updateSignalSettings = (values: Partial<SignalSettings>) =>
   http.put<SignalSettings>('/api/signals/settings', values).then((r) => r.data)

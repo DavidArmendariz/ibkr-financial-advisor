@@ -1,4 +1,4 @@
-import { BarChart2, Bot, Globe, ListOrdered, PanelLeftClose, Radar, Settings, Sigma } from 'lucide-react'
+import { BarChart2, Bot, Globe, History, ListOrdered, PanelLeftClose, Radar, Settings, Sigma } from 'lucide-react'
 import { ConnectionIndicator } from '@/components/ConnectionIndicator'
 import { DeltaWitsMark } from '@/components/DeltaWitsMark'
 import { SIDEBAR_SHORTCUT, cn, formatCurrency, isMac, pnlClass } from '@/lib/utils'
@@ -18,6 +18,7 @@ const TABS: { id: AppTab; label: string; icon: React.ElementType }[] = [
   { id: 'orders', label: 'Orders', icon: ListOrdered },
   { id: 'chat', label: 'AI Advisor', icon: Bot },
   { id: 'signals', label: 'Signals', icon: Radar },
+  { id: 'signal-history', label: 'Signal History', icon: History },
   { id: 'gamma', label: 'Gamma', icon: Sigma },
   { id: 'macro', label: 'Macro', icon: Globe },
   { id: 'settings', label: 'Settings', icon: Settings },

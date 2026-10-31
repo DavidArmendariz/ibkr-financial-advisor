@@ -89,7 +89,7 @@ export interface OpenOrdersState {
   orders: OpenOrder[]
 }
 
-export type AppTab = 'dashboard' | 'orders' | 'chat' | 'signals' | 'gamma' | 'macro' | 'settings'
+export type AppTab = 'dashboard' | 'orders' | 'chat' | 'signals' | 'signal-history' | 'gamma' | 'macro' | 'settings'
 
 export type RiskProfile = 'conservative' | 'moderate' | 'aggressive'
 
@@ -163,6 +163,13 @@ export interface SignalRecord {
   bars: { time: string; open: number; high: number; low: number; close: number; volume: number }[]
   llm: LLMDecision
   notified: boolean
+}
+
+export type SignalHistoryRecord = Omit<SignalRecord, 'bars'>
+
+export interface SignalHistoryPage {
+  signals: SignalHistoryRecord[]
+  next_cursor: string | null
 }
 
 export interface SignalSettings {

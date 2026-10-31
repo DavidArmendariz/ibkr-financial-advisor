@@ -6,6 +6,7 @@ import { Dashboard } from '@/pages/Dashboard'
 import { ChatPage } from '@/pages/Chat'
 import { SettingsPage } from '@/pages/Settings'
 import { SignalsPage } from '@/pages/Signals'
+import { SignalHistoryPage } from '@/pages/SignalHistory'
 import { GammaPage } from '@/pages/Gamma'
 import { MacroPage } from '@/pages/Macro'
 import { OrdersPage } from '@/pages/Orders'
@@ -89,6 +90,7 @@ export function Layout({ activeTab, onTabChange, connectionStatus, onDisconnect 
           {activeTab === 'orders' && <OrdersPage />}
           {activeTab === 'chat' && <ChatPage onOpenSettings={() => onTabChange('settings')} />}
           {activeTab === 'signals' && <SignalsPage />}
+          {activeTab === 'signal-history' && <SignalHistoryPage />}
           {activeTab === 'gamma' && <GammaPage />}
           {activeTab === 'macro' && <MacroPage />}
           {activeTab === 'settings' && <SettingsPage />}

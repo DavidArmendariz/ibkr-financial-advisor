@@ -298,6 +298,7 @@ async def test_saved_signal_keeps_its_category(tmp_path, monkeypatch):
     await reloaded._load_history()
     assert first.history[0]["category"] == VOLUME
     assert (reloaded.history[0]["signal_type"], reloaded.history[0]["category"]) == (VOLUME_SPIKE, VOLUME)
+    assert reloaded.history[0]["ema_periods"] == [first.settings.ema_fast, first.settings.ema_slow]
     await database._engine.dispose()
 
 

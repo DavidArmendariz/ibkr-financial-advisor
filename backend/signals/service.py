@@ -301,6 +301,8 @@ class SignalService:
             "category": candidate.category,
             "price": candidate.price,
             "indicators": snapshot["indicators"],
+            # Saved with the signal: the periods can change after it fires.
+            "ema_periods": [s.ema_fast, s.ema_slow],
             "bars": snapshot["bars"],
             "llm": decision.to_dict(),
             "notified": notify,
@@ -312,7 +314,7 @@ class SignalService:
     async def _persist(self, record: dict, time: datetime) -> None:
         try:
             async with database.AsyncSessionLocal() as session:
-                payload = {k: record[k] for k in ("category", "indicators", "bars", "llm", "notified")}
+                payload = {k: record[k] for k in ("category", "indicators", "ema_periods", "bars", "llm", "notified")}
                 session.add(
                     SignalEvent(
                         id=record["id"],

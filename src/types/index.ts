@@ -159,6 +159,7 @@ export interface SignalRecord {
   symbol: string
   signal_type: string
   category?: SignalCategory // missing on signals recorded before triggers had categories
+  ema_periods?: [number, number] // fast, slow; missing on older signals
   price: number
   indicators: SignalIndicators
   bars: { time: string; open: number; high: number; low: number; close: number; volume: number }[]

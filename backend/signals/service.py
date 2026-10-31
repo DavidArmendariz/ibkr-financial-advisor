@@ -251,13 +251,20 @@ class SignalService:
             self._restart = True  # restored, but subscriptions were lost
         elif code == 1102:
             self.error = None
-        elif code in DATA_ERROR_CODES and getattr(contract, "symbol", None) in (None, self.settings.symbol):
+        elif code in DATA_ERROR_CODES and self._is_own_error(req_id, contract):
             if self.stream in ("warming_up", "streaming"):
                 self.error = f"IBKR error {code}: {message}"
                 self.stream = "error"
                 self._teardown()
                 wait = PERMISSION_RETRY_SECONDS if code in PERMISSION_CODES else STREAM_RETRY_SECONDS
                 self._retry_at = datetime.now(timezone.utc) + timedelta(seconds=wait)
+
+    def _is_own_error(self, req_id: int, contract: Any) -> bool:
+        if contract is not None:
+            return getattr(contract, "symbol", None) == self.settings.symbol
+        # ib_async drops the contract once a request ends, so an error for Macro's or
+        # Gamma's futures can arrive without one. Only the request id tells them apart.
+        return req_id == -1 or (self.rt_bars is not None and req_id == self.rt_bars.reqId)
 
     def _on_realtime_bar(self, bars: Any, has_new_bar: bool) -> None:
         if not has_new_bar or not bars or self.aggregator is None:

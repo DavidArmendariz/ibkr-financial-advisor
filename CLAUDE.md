@@ -60,6 +60,7 @@ Before calling work done: pytest, tsc and vite build pass, and UI changes are lo
 - The gamma service calls `reqMarketDataType(2)` (frozen) on the shared connection; that also affects other `reqMktData` users.
 - The macro service calls `reqMarketDataType(4)` (delayed-frozen) before subscribing its futures and indexes. The type applies to requests made after it, so set your own right before any new `reqMktData`. Delayed data streams nothing while a market is closed.
 - Error 322 (too many account summary requests) shows up from the Dashboard's 15 s polling; `accountSummaryAsync` / `reqPositionsAsync` have no timeout.
+- ib_async can report an error with no contract once a request has ended, so a missing contract doesn't mean it's yours. Match on the request id: another feature's error once stopped the SOXL stream this way.
 - One-off scripts must use their own client ID (the app uses `IBKR_CLIENT_ID`, default 1; replay uses +50).
 
 ## Dev gotchas
@@ -69,3 +70,4 @@ Before calling work done: pytest, tsc and vite build pass, and UI changes are lo
 - Markdown components in the chat must stay module-level constants, or charts remount (and refetch) on every keystroke.
 - Electron 34 ships Node 20, which has no global `WebSocket`; the main process uses the `ws` package.
 - Closing the window keeps the app (and notifications) running in the Dock; Cmd+Q quits.
+- Electron's notification `show` event fires even when macOS hides the alert, so it doesn't prove delivery. Check with a person, and check system notification settings first.

@@ -8,7 +8,7 @@ from backend.config import get_settings
 from backend.database import create_db_and_tables
 from backend.gamma.service import gamma_service
 from backend.macro.service import macro_service
-from backend.routers import connection, portfolio, chat, gamma, macro, settings, signals
+from backend.routers import connection, portfolio, orders, chat, gamma, macro, settings, signals
 from backend.services import ibkr_service
 from backend.services.ibkr_service import ibkr
 from backend.signals.service import signal_service
@@ -47,6 +47,7 @@ app.add_middleware(
 
 app.include_router(connection.router, prefix="/api/connection", tags=["connection"])
 app.include_router(portfolio.router, prefix="/api/portfolio", tags=["portfolio"])
+app.include_router(orders.router, prefix="/api/orders", tags=["orders"])
 app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 app.include_router(signals.router, prefix="/api/signals", tags=["signals"])

@@ -2,7 +2,8 @@ import asyncio
 import calendar
 from datetime import datetime
 from typing import Optional
-from ib_async import IB, Contract, Stock, Forex
+from ib_async import IB, Contract, OrderStatus, Stock, Forex
+from ib_async.util import UNSET_DOUBLE
 
 from backend.config import get_settings
 
@@ -38,9 +39,9 @@ async def _connect(host: str, port: int, client_id: int) -> bool:
         ibkr.disconnect()
 
     try:
-        # readonly: the app only reads data. Without it ib_async requests open and
-        # completed orders on connect, which TWS rejects (with a pop-up) when
-        # "Read-Only API" is enabled.
+        # readonly: without it ib_async requests open and completed orders on every
+        # connect, which TWS can reject (with a pop-up) when "Read-Only API" is
+        # enabled. Open orders are read only on demand, while the Orders view is open.
         await ibkr.connectAsync(host, port, clientId=client_id, timeout=5, readonly=True)
         _connected_port = port
         _target = (host, port, client_id)
@@ -178,6 +179,59 @@ async def get_positions() -> list[dict]:
             pass
 
     return result
+
+
+OPEN_ORDERS_TIMEOUT = 5.0
+
+# ib_async tracks this request under one name, so a second concurrent call would
+# replace the first one's future and leave it unanswered.
+_open_orders_lock = asyncio.Lock()
+
+# ActiveStates would hide PendingCancel, which can still fill, and DoneStates includes
+# Inactive, which is an order the user needs to see.
+_FINISHED_STATES = OrderStatus.DoneStates - {OrderStatus.Inactive}
+
+
+def _order_price(value: Optional[float]) -> Optional[float]:
+    return None if value in (None, 0, UNSET_DOUBLE) else value
+
+
+def _open_order(trade) -> dict:
+    contract, order, status = trade.contract, trade.order, trade.orderStatus
+    return {
+        "perm_id": order.permId,
+        "symbol": contract.symbol,
+        "asset_class": contract.secType,
+        "currency": contract.currency,
+        "expiry": contract.lastTradeDateOrContractMonth or None,
+        "strike": contract.strike or None,
+        # TWS sends "?" for a stock, where a right doesn't apply.
+        "right": None if contract.right in ("", "?") else contract.right,
+        "action": order.action,
+        "order_type": order.orderType,
+        "quantity": order.totalQuantity,
+        "filled": status.filled,
+        "remaining": status.remaining,
+        "limit_price": _order_price(order.lmtPrice),
+        "stop_price": _order_price(order.auxPrice),
+        "time_in_force": order.tif,
+        "status": status.status,
+    }
+
+
+async def get_open_orders() -> dict:
+    async with _open_orders_lock:
+        try:
+            # TWS's refusal is only a warning to ib_async, so a request blocked by
+            # Read-Only API never completes and has to be timed out.
+            trades = await asyncio.wait_for(ibkr.reqAllOpenOrdersAsync(), OPEN_ORDERS_TIMEOUT)
+        except asyncio.TimeoutError:
+            return {"available": False, "orders": []}
+
+    # TWS can send an order twice.
+    unique = {id(trade): trade for trade in trades}.values()
+    orders = [_open_order(t) for t in unique if t.orderStatus.status not in _FINISHED_STATES]
+    return {"available": True, "orders": orders}
 
 
 def _bar_time(value) -> float:

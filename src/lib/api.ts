@@ -10,6 +10,7 @@ import type {
   GammaState,
   MacroState,
   OHLCBar,
+  OpenOrdersState,
   Position,
   SignalSettings,
   SignalState,
@@ -56,6 +57,11 @@ export const getChartData = (
       params: { duration, bar_size: barSize },
     })
     .then((r) => r.data)
+
+// ── Orders ───────────────────────────────────────────────────────────────────
+
+export const getOpenOrders = () =>
+  http.get<OpenOrdersState>('/api/orders/open').then((r) => r.data)
 
 // ── Chat ─────────────────────────────────────────────────────────────────────
 

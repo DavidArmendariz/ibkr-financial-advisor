@@ -65,7 +65,31 @@ export interface AppSettings {
   }
 }
 
-export type AppTab = 'dashboard' | 'chat' | 'signals' | 'gamma' | 'macro' | 'settings'
+export interface OpenOrder {
+  perm_id: number
+  symbol: string
+  asset_class: string
+  currency: string
+  expiry: string | null
+  strike: number | null
+  right: string | null
+  action: string
+  order_type: string
+  quantity: number
+  filled: number
+  remaining: number
+  limit_price: number | null
+  stop_price: number | null
+  time_in_force: string
+  status: string
+}
+
+export interface OpenOrdersState {
+  available: boolean
+  orders: OpenOrder[]
+}
+
+export type AppTab = 'dashboard' | 'orders' | 'chat' | 'signals' | 'gamma' | 'macro' | 'settings'
 
 export type RiskProfile = 'conservative' | 'moderate' | 'aggressive'
 

@@ -76,7 +76,7 @@ export function ConnectionGuard({ status, loading, error, autoConnect, onConnect
             <li>Go to <strong>File → Global Configuration → API → Settings</strong> and dismiss the API announcements pop-up</li>
             <li>Enable <strong>Enable ActiveX and Socket Clients</strong> (it's off by default)</li>
             <li>Set Socket port to <strong>7497</strong> (paper) or <strong>7496</strong> (live)</li>
-            <li>Leave <strong>Read-Only API</strong> on; the app only reads data</li>
+            <li>Turn <strong>Read-Only API</strong> off to see open orders; the app never places orders</li>
             <li>Click <strong>Apply</strong> → <strong>OK</strong>, then <strong>Accept</strong> the incoming API connection prompt</li>
           </ol>
         </div>

@@ -13,6 +13,11 @@ Built with Electron + React on the frontend and a Python FastAPI backend. The ap
 - Sortable positions table with ticker, asset class, quantity, average cost, market price, and P&L
 - Interactive candlestick chart (TradingView `lightweight-charts`) with 1D / 5D / 1M / 3M / 1Y timeframes; click any position row to load its chart
 
+**Orders**
+- Lists the account's open orders, including those placed in TWS or by other API clients: instrument, side, order type, total, filled and remaining quantity, limit and stop prices, time in force, and status
+- Refreshes every 15 seconds while the view is open, and on demand with **Refresh**
+- View only: orders can't be placed, changed, or cancelled from the app
+
 **AI Financial Advisor**
 - Acts as an expert portfolio manager following Aswath Damodaran's investment process: understand the client, set the asset allocation before selecting securities, weigh trading costs and taxes, and judge performance against risk
 - **Risk profile** dropdown (Conservative / Moderate / Aggressive) above the message box, sent with every message and remembered between sessions. Each profile sets allocation ranges, loss tolerance, single-position caps, and whether margin or options are acceptable
@@ -147,7 +152,7 @@ The TWS API socket is **off by default**. While it's off, TWS can be running and
    |---|---|---|
    | **Enable ActiveX and Socket Clients** | ✅ on | Opens the API socket; required |
    | **Socket port** | `7497` (paper) / `7496` (live) | Must match `IBKR_PAPER_PORT` / `IBKR_LIVE_PORT` in `.env`. Scroll down in the panel to find it |
-   | **Read-Only API** | ✅ on is fine | The app only reads positions, balances, and market data today. Turn it off only if order placement is added later |
+   | **Read-Only API** | ⬜ off to use **Orders** | The Orders view is tested with this off; with it on, TWS may refuse to show orders. Everything else works either way. Off removes TWS's own block on order placement, so the app's code is then the only safeguard. The app never places, changes, or cancels orders |
    | **Allow connections from localhost only** | ✅ on | Keeps the API off the network. Or add `127.0.0.1` to **Trusted IPs** |
 
    Further down the panel, **Use "$LEDGER" prefix for per-currency keys** can be on or off; the app handles both.
@@ -165,7 +170,7 @@ lsof -nP -iTCP:7497 -sTCP:LISTEN   # should list the TWS (Java) process
 **Troubleshooting**
 
 - **Nothing listening on 7497/7496**: the API isn't enabled (step 5), TWS is still logging in, or you set a different socket port.
-- **Pop-up: "An API client is attempting to send a request that needs API write access"**: click **Close** and leave Read-Only API on. The app connects in read-only mode and makes no write requests, so this only appears if another tool (or an older build of this app) asks TWS for orders.
+- **Pop-up: "An API client is attempting to send a request that needs API write access"**: this can appear when Read-Only API is on and the Orders view asks TWS for open orders. Click **Close**. Turn Read-Only API off to use the view, or leave it on and stay out of the Orders view; automatic refresh pauses after a refusal.
 - **Connects, then drops immediately**: another API client is using the same client ID. Change `IBKR_CLIENT_ID` in `.env`.
 - **Connection lost overnight**: TWS logs off or restarts once a day (configurable under **Configuration → Lock and Exit**). The backend keeps retrying; once TWS is back and logged in, the app reconnects on its own.
 - **IB Gateway** works the same way, but its default ports are `4002` (paper) and `4001` (live). Either change them to 7497/7496 in the Gateway's API settings, or set `IBKR_PAPER_PORT` / `IBKR_LIVE_PORT` in `.env`.
@@ -291,6 +296,7 @@ ibkr-financial-advisor/
 │   ├── routers/
 │   │   ├── connection.py # GET /status, POST /connect, POST /auto-connect
 │   │   ├── portfolio.py  # GET /summary, /positions, /snapshot, /chart/:symbol
+│   │   ├── orders.py     # GET /open
 │   │   ├── chat.py       # REST thread CRUD + WS /ws/:thread_id streaming
 │   │   ├── settings.py   # AI provider selection, Anthropic key, OpenAI-compatible config
 │   │   ├── signals.py    # GET /state, PUT /settings, WS /ws
@@ -328,7 +334,8 @@ ibkr-financial-advisor/
     │   ├── usePortfolio.ts   # Polls summary + positions every 15 s
     │   ├── useChat.ts        # Thread CRUD + WebSocket streaming state
     │   ├── useSignals.ts     # Signals WebSocket: status, live values, history, settings
-    │   └── useMacro.ts       # Polls /api/macro/state every 3 s while the Macro view is open
+    │   ├── useMacro.ts       # Polls /api/macro/state every 3 s while the Macro view is open
+    │   └── useOpenOrders.ts  # Polls /api/orders/open every 15 s while the Orders view is open
     ├── components/
     │   ├── ConnectionGuard.tsx
     │   ├── Sidebar.tsx
@@ -336,11 +343,13 @@ ibkr-financial-advisor/
     │   ├── DeltaWitsMark.tsx # Sidebar logo
     │   ├── ui/               # Shadcn primitives (button, card, dialog, …)
     │   ├── dashboard/        # AccountSummary, PositionsTable, TradingChart
+    │   ├── orders/           # OrdersTable
     │   ├── chat/             # Session list, chat window, markdown + chart rendering, risk profile select
     │   ├── signals/          # Status cards, live values, signal table, settings form
     │   └── macro/            # Indicator card, sparkline
     └── pages/
         ├── Dashboard.tsx
+        ├── Orders.tsx
         ├── Chat.tsx
         ├── Signals.tsx
         ├── Macro.tsx
@@ -372,6 +381,7 @@ ibkr-financial-advisor/
 | `GET` | `/api/signals/state` | Signal status, live indicator values, last 50 signals, and settings |
 | `PUT` | `/api/signals/settings` | Update any subset of signal settings; applied live |
 | `WS` | `/api/signals/ws` | Signal event stream (see below) |
+| `GET` | `/api/orders/open` | `available` (`false` if TWS refused or didn't answer) and `orders`, one entry per open order; 503 when not connected |
 | `GET` | `/api/macro/state` | `connected` and one entry per macro indicator: `value`, `previous_close`, `change`, `change_pct` / `change_bp`, `freshness` (`live` / `delayed` / `closed`, or `daily` for the TRM), `contract`, `contract_month`, `valid_from` / `valid_to` (TRM), `updated_at`, `stale`, `error`, `sparkline` |
 
 ---

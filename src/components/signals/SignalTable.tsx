@@ -22,7 +22,7 @@ export function SignalTable({ signals }: { signals: SignalRecord[] }) {
   if (signals.length === 0) {
     return (
       <div className="rounded-lg border border-border py-10 text-center text-sm text-muted-foreground">
-        No signals yet. Entries appear here as they fire during market hours.
+        No signals yet. Alerts appear here as they fire during market hours.
       </div>
     )
   }
@@ -47,7 +47,10 @@ export function SignalTable({ signals }: { signals: SignalRecord[] }) {
           {signals.map((s) => (
             <tr key={s.id} className="border-b border-border last:border-0">
               <td className="whitespace-nowrap px-3 py-2 tabular-nums text-muted-foreground">{fmtTimeET(s.time, true)}</td>
-              <td className="whitespace-nowrap px-3 py-2 font-medium">{s.signal_type.replace(/_/g, ' ')}</td>
+              <td className="whitespace-nowrap px-3 py-2">
+                <span className="font-medium">{s.signal_type.replace(/_/g, ' ')}</span>
+                {s.category && <span className="ml-2 capitalize text-muted-foreground">{s.category}</span>}
+              </td>
               <td className="px-3 py-2 text-right tabular-nums">{fmtPrice(s.price)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{fmtPrice(s.indicators.vwap)}</td>
               <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">

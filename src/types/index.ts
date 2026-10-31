@@ -150,11 +150,14 @@ export interface LLMDecision {
   model: string | null
 }
 
+export type SignalCategory = 'volume' | 'technical'
+
 export interface SignalRecord {
   id: string
   time: string
   symbol: string
   signal_type: string
+  category?: SignalCategory // missing on signals recorded before triggers had categories
   price: number
   indicators: SignalIndicators
   bars: { time: string; open: number; high: number; low: number; close: number; volume: number }[]
@@ -171,6 +174,9 @@ export interface SignalSettings {
   bb_std: number
   rvol_period: number
   rvol_threshold: number
+  trigger_volume_enabled: boolean
+  trigger_ema_enabled: boolean
+  trigger_vwap_enabled: boolean
   include_premarket: boolean
   open_blackout_minutes: number
   close_blackout_minutes: number

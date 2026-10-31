@@ -24,6 +24,16 @@ const COLORS = {
 }
 const SESSION_MINUTES = 390
 
+const MARKER_TEXT: Record<string, string> = { VOLUME_SPIKE: 'VOL', EMA_CROSS: 'EMA', VWAP_CROSS: 'VWAP', LONG_ENTRY: 'LONG' }
+
+// Volume has no direction, so it sits above the bar as a dot rather than an up arrow.
+function markerStyle(sig: SignalRecord) {
+  const text = MARKER_TEXT[sig.signal_type] ?? sig.signal_type
+  return sig.category === 'volume'
+    ? ({ position: 'aboveBar', color: '#c98500', shape: 'circle', text } as const)
+    : ({ position: 'belowBar', color: UP, shape: 'arrowUp', text } as const)
+}
+
 // lightweight-charts has no time zones: shift UTC seconds so the axis reads New York time.
 const etFormatter = new Intl.DateTimeFormat('en-US', {
   timeZone: 'America/New_York',
@@ -162,11 +172,10 @@ export function SignalChart({ chart, forming, signals, settings, symbol }: Props
     const minutes = chart?.timeframe_minutes ?? 1
     const first = bars[0]?.time
     const markers: SeriesMarker<Time>[] = signals
-      .map((sig) => new Date(new Date(sig.time).getTime() - minutes * 60_000).toISOString())
-      .filter((start) => first !== undefined && start >= first)
-      .map((start) => toChartTime(start))
-      .sort((a, b) => a - b)
-      .map((time) => ({ time, position: 'belowBar', color: UP, shape: 'arrowUp', text: 'LONG' }))
+      .map((sig) => ({ sig, start: new Date(new Date(sig.time).getTime() - minutes * 60_000).toISOString() }))
+      .filter(({ start }) => first !== undefined && start >= first)
+      .map(({ sig, start }) => ({ time: toChartTime(start), ...markerStyle(sig) }))
+      .sort((a, b) => a.time - b.time)
     s.candles.setMarkers(markers)
   }, [signals, bars, chart?.timeframe_minutes])
 

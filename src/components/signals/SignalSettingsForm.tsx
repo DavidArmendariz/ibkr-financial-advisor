@@ -12,7 +12,7 @@ type NumberKey = {
   [K in keyof SignalSettings]: SignalSettings[K] extends number ? K : never
 }[keyof SignalSettings]
 type TextKey = 'llm_model_anthropic' | 'llm_model_openai' | 'llm_model_openrouter'
-type BoolKey = 'include_premarket' | 'llm_enabled'
+type BoolKey = 'include_premarket' | 'llm_enabled' | 'trigger_volume_enabled' | 'trigger_ema_enabled' | 'trigger_vwap_enabled'
 
 interface Props {
   settings: SignalSettings
@@ -47,6 +47,7 @@ export function SignalSettingsForm({ settings, onSave }: Props) {
     return out
   }, [draft, settings])
   const dirty = Object.keys(changes).length > 0
+  const allOff = !draft.trigger_volume_enabled && !draft.trigger_ema_enabled && !draft.trigger_vwap_enabled
 
   const set = <K extends keyof SignalSettings>(key: K, value: SignalSettings[K]) => {
     setDraft((d) => ({ ...d, [key]: value }))
@@ -139,9 +140,24 @@ export function SignalSettingsForm({ settings, onSave }: Props) {
           </section>
 
           <section className="flex flex-col gap-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Entry rule</h3>
-            <div className="grid grid-cols-4 gap-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Volume triggers</h3>
+            {check('trigger_volume_enabled', 'Relative volume above the minimum')}
+            <div className="grid grid-cols-3 gap-3">
               <Field label="Min relative volume" hint="x">{num('rvol_threshold', 0.1)}</Field>
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Technical triggers</h3>
+            {check('trigger_ema_enabled', 'EMA cross: the fast EMA crosses above the slow EMA')}
+            {check('trigger_vwap_enabled', 'VWAP cross: the close crosses above VWAP')}
+            {allOff && <p className="text-xs text-amber-400">All triggers are off, so no alerts will fire.</p>}
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Timing</h3>
+            <p className="text-xs text-muted-foreground">Each trigger alerts on its own and has its own cooldown.</p>
+            <div className="grid grid-cols-3 gap-3">
               <Field label="Cooldown" hint="min">{num('cooldown_minutes')}</Field>
               <Field label="Skip after open" hint="min">{num('open_blackout_minutes')}</Field>
               <Field label="Skip before close" hint="min">{num('close_blackout_minutes')}</Field>

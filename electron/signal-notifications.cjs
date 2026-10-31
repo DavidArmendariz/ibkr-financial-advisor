@@ -5,6 +5,8 @@ const WebSocket = require('ws')
 
 const RECONNECT_MAX_MS = 30_000
 
+const CATEGORY_LABELS = { volume: 'Volume', technical: 'Technical' }
+
 const fmt = (n) => (typeof n === 'number' ? n.toFixed(2) : '–')
 
 function describe(signal) {
@@ -16,7 +18,9 @@ function describe(signal) {
     llm.action === 'take'
       ? `LLM ${Math.round((llm.confidence || 0) * 100)}%: ${llm.reason}`
       : `Unfiltered${llm.reason ? ` (${llm.reason})` : ''}`
-  return { title, body: `${values}\n${verdict}` }
+  const category = CATEGORY_LABELS[signal.category]
+  const lines = [category && `${category} trigger`, values, verdict].filter(Boolean)
+  return { title, body: lines.join('\n') }
 }
 
 // The main process subscribes itself (not the renderer) so alerts still arrive

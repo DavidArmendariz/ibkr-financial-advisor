@@ -6,7 +6,7 @@ from typing import Optional
 from backend.signals.config import SignalSettings
 from backend.signals.indicators import IndicatorSet
 from backend.signals.models import Bar, IndicatorValues
-from backend.signals.rules import LONG_ENTRY, cooldown_elapsed, in_blackout, is_long_entry
+from backend.signals.rules import TRIGGERS, cooldown_elapsed, in_blackout
 from backend.signals.sessions import ET, SessionCalendar
 
 SNAPSHOT_BARS = 20
@@ -16,6 +16,7 @@ CHART_BARS = 1500
 @dataclass
 class Candidate:
     signal_type: str
+    category: str
     symbol: str
     time: datetime  # bar close
     price: float
@@ -26,6 +27,7 @@ class Candidate:
         return {
             "symbol": self.symbol,
             "signal_type": self.signal_type,
+            "category": self.category,
             "time": self.time.isoformat(),
             "price": self.price,
             "indicators": self.indicators.to_dict(),
@@ -62,7 +64,7 @@ class SignalPipeline:
         self.history.append((bar, values))
         self.last_bar, self.last_values = bar, values
         prev, self.prev = self.prev, (bar, values)
-        if not emit or prev is None or prev[0].time.astimezone(ET).date() != bar.time.astimezone(ET).date():
+        if not emit or prev is None or not values.ready():
             return []
 
         s = self.settings
@@ -72,10 +74,19 @@ class SignalPipeline:
         ):
             return []
 
+        # A cross needs the previous bar of the same session; volume stands on its own bar.
+        same_session = prev[0].time.astimezone(ET).date() == bar.time.astimezone(ET).date()
+        prev_close, prev_values = (prev[0].close, prev[1]) if same_session else (None, None)
+
         candidates = []
-        if is_long_entry(prev[0].close, prev[1], bar.close, values, s.rvol_threshold) and cooldown_elapsed(
-            self.last_fired.get(LONG_ENTRY), close_time, s.cooldown_minutes
-        ):
-            self.last_fired[LONG_ENTRY] = close_time
-            candidates.append(Candidate(LONG_ENTRY, s.symbol, close_time, bar.close, values, list(self.bars)))
+        for t in TRIGGERS:
+            if (
+                getattr(s, t.setting)
+                and t.fires(prev_close, prev_values, bar.close, values, s.rvol_threshold)
+                and cooldown_elapsed(self.last_fired.get(t.signal_type), close_time, s.cooldown_minutes)
+            ):
+                self.last_fired[t.signal_type] = close_time
+                candidates.append(
+                    Candidate(t.signal_type, t.category, s.symbol, close_time, bar.close, values, list(self.bars))
+                )
         return candidates

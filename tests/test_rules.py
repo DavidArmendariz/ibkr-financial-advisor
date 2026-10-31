@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 
@@ -6,7 +7,19 @@ from backend.signals import config as signal_config
 from backend.signals.config import SignalSettings, save_signal_settings
 from backend.signals.models import Bar, IndicatorValues
 from backend.signals.pipeline import SignalPipeline
-from backend.signals.rules import LONG_ENTRY, cooldown_elapsed, crosses_above, in_blackout, is_long_entry
+from backend.signals.rules import (
+    EMA_CROSS,
+    TECHNICAL,
+    VOLUME,
+    VOLUME_SPIKE,
+    VWAP_CROSS,
+    cooldown_elapsed,
+    crosses_above,
+    ema_cross,
+    in_blackout,
+    volume_spike,
+    vwap_cross,
+)
 from backend.signals.sessions import ET, SessionCalendar
 
 PREV = IndicatorValues(vwap=10.0, ema_fast=10.1, ema_slow=10.0, bb_mid=10, bb_upper=11, bb_lower=9, rvol=1.0)
@@ -20,22 +33,31 @@ def test_crosses_above():
     assert not crosses_above(9.9, 10.0, 10.0, 10.0)  # touching isn't crossing
 
 
-def test_long_entry_when_all_conditions_hold():
-    assert is_long_entry(9.95, PREV, 10.05, CUR, rvol_threshold=1.5)
+def values(**changes):
+    return IndicatorValues(**{**CUR.to_dict(), **changes})
 
 
-@pytest.mark.parametrize(
-    "prev_close, close, cur, why",
-    [
-        (10.05, 10.10, CUR, "no cross: already above VWAP"),
-        (9.95, 9.99, CUR, "no cross: still below VWAP"),
-        (9.95, 10.05, IndicatorValues(**{**CUR.to_dict(), "ema_fast": 9.9}), "EMA fast below slow"),
-        (9.95, 10.05, IndicatorValues(**{**CUR.to_dict(), "rvol": 1.2}), "relative volume too low"),
-        (9.95, 10.05, IndicatorValues(**{**CUR.to_dict(), "rvol": None}), "indicators not ready"),
-    ],
-)
-def test_long_entry_rejected(prev_close, close, cur, why):
-    assert not is_long_entry(prev_close, PREV, close, cur, rvol_threshold=1.5), why
+def test_volume_fires_above_threshold_on_its_own():
+    # No cross of any kind: volume doesn't depend on the technical triggers.
+    assert volume_spike(11.0, PREV, 11.0, values(rvol=2.0), 1.5)
+    assert not volume_spike(11.0, PREV, 11.0, values(rvol=1.5), 1.5)
+    assert not volume_spike(11.0, PREV, 11.0, values(rvol=2.0), 3.0)
+    assert volume_spike(None, None, 11.0, values(rvol=2.0), 1.5)
+
+
+def test_ema_cross_fires_only_on_the_crossing_bar():
+    below = IndicatorValues(vwap=10.0, ema_fast=9.9, ema_slow=10.0, rvol=1.0)
+    assert ema_cross(9.0, below, 9.0, values(ema_fast=10.1, rvol=0.1), 1.5)  # below VWAP, on low volume
+    assert not ema_cross(9.0, PREV, 9.0, values(ema_fast=10.2), 1.5)  # already above
+    assert not ema_cross(9.0, below, 9.0, values(ema_fast=9.95), 1.5)  # still below
+    assert not ema_cross(None, None, 9.0, values(ema_fast=10.1), 1.5)  # no bar this session
+
+
+def test_vwap_cross_ignores_trend_and_volume():
+    assert vwap_cross(9.95, PREV, 10.05, values(ema_fast=9.0, rvol=0.1), 1.5)
+    assert not vwap_cross(10.05, PREV, 10.1, CUR, 1.5)  # already above
+    assert not vwap_cross(9.9, PREV, 9.95, CUR, 1.5)  # still below
+    assert not vwap_cross(None, None, 10.05, CUR, 1.5)  # no bar this session
 
 
 def session(day=date(2026, 10, 6)):
@@ -101,15 +123,53 @@ def run(pipeline, bars):
     return out
 
 
-def test_pipeline_emits_long_entry_with_snapshot():
+def types(signals):
+    return [s.signal_type for s in signals]
+
+
+def test_pipeline_emits_trigger_with_snapshot():
     day = date(2026, 10, 6)
-    signals = run(SignalPipeline(settings()), rising_then_cross(day))
-    assert [s.signal_type for s in signals] == [LONG_ENTRY]
+    signals = run(SignalPipeline(settings(trigger_ema_enabled=False)), rising_then_cross(day))
+    assert types(signals) == [VOLUME_SPIKE]
     snap = signals[0].snapshot()
     assert snap["price"] == 10.2
+    assert snap["category"] == VOLUME
     assert set(snap["indicators"]) == {"vwap", "ema_fast", "ema_slow", "bb_mid", "bb_upper", "bb_lower", "rvol"}
     assert 1 <= len(snap["bars"]) <= 20
     assert snap["time"].startswith("2026-10-06T10:14")
+
+
+def test_defaults_leave_vwap_off():
+    fields = SignalSettings.model_fields
+    assert fields["trigger_volume_enabled"].default is True
+    assert fields["trigger_ema_enabled"].default is True
+    assert fields["trigger_vwap_enabled"].default is False
+
+
+def test_triggers_on_one_bar_raise_separate_signals():
+    day = date(2026, 10, 6)
+    signals = run(SignalPipeline(settings(trigger_vwap_enabled=True)), rising_then_cross(day))
+    assert types(signals) == [VOLUME_SPIKE, EMA_CROSS, VWAP_CROSS]
+    assert [s.category for s in signals] == [VOLUME, TECHNICAL, TECHNICAL]
+    assert len({s.time for s in signals}) == 1
+
+
+def test_all_triggers_off_raises_nothing():
+    off = dict(trigger_volume_enabled=False, trigger_ema_enabled=False, trigger_vwap_enabled=False)
+    assert run(SignalPipeline(settings(**off)), rising_then_cross(date(2026, 10, 6))) == []
+
+
+def test_switch_applies_to_the_next_bar():
+    bars = rising_then_cross(date(2026, 10, 6))
+    s = settings(trigger_volume_enabled=False, trigger_ema_enabled=False)
+    p = SignalPipeline(s)
+    assert run(p, bars[:-1]) == []
+    p.apply_settings(settings(trigger_ema_enabled=False))
+    assert types(run(p, bars[-1:])) == [VOLUME_SPIKE]
+
+
+def test_switches_do_not_rebuild_indicators():
+    assert settings().pipeline_key() == settings(trigger_vwap_enabled=True, trigger_ema_enabled=False).pipeline_key()
 
 
 def test_pipeline_respects_open_blackout():
@@ -118,18 +178,62 @@ def test_pipeline_respects_open_blackout():
     assert run(SignalPipeline(settings()), bars) == []
 
 
-def test_pipeline_cooldown_suppresses_repeat():
+def test_cooldown_suppresses_repeat_of_the_same_trigger():
     day = date(2026, 10, 6)
-    p = SignalPipeline(settings(cooldown_minutes=30))
+    p = SignalPipeline(settings(cooldown_minutes=30, trigger_ema_enabled=False))
     first = run(p, rising_then_cross(day, 0))
     second = run(p, [bar(day, 10, 14 + i, 9.5, 1000) for i in range(1, 6)] + [bar(day, 10, 20, 10.5, 9000)])
-    assert len(first) == 1 and second == []
+    assert types(first) == [VOLUME_SPIKE] and second == []
+
+
+def test_cooldowns_do_not_block_other_triggers():
+    day = date(2026, 10, 6)
+    p = SignalPipeline(settings(cooldown_minutes=30))
+    bars = rising_then_cross(day)
+    run(p, bars[:-1])
+    p.last_fired[VOLUME_SPIKE] = bars[-1].time
+    assert types(run(p, bars[-1:])) == [EMA_CROSS]
+
+
+def test_volume_fires_on_a_session_first_bar_but_crosses_do_not():
+    day, next_day = date(2026, 10, 6), date(2026, 10, 7)
+    p = SignalPipeline(settings(open_blackout_minutes=0, trigger_vwap_enabled=True))
+    run(p, [bar(day, 15, i, 10.0, 1000) for i in range(30)])
+    assert types(run(p, [bar(next_day, 9, 30, 12.0, 9000)])) == [VOLUME_SPIKE]
 
 
 def test_pipeline_warmup_bars_never_emit():
     day = date(2026, 10, 6)
     p = SignalPipeline(settings())
     assert [c for b in rising_then_cross(day) for c in p.on_bar(b, emit=False)] == []
+
+
+def test_all_triggers_off_can_be_saved(monkeypatch):
+    monkeypatch.setattr(signal_config, "save_env_values", lambda values: None)
+    signal_config.get_signal_settings.cache_clear()
+    try:
+        save_signal_settings({"trigger_volume_enabled": False, "trigger_ema_enabled": False, "trigger_vwap_enabled": False})
+    finally:
+        signal_config.get_signal_settings.cache_clear()
+
+
+async def test_saved_signal_keeps_its_category(tmp_path, monkeypatch):
+    from backend import database
+    from backend.signals.pipeline import Candidate
+    from backend.signals.service import SignalService
+
+    monkeypatch.setattr(database, "get_settings", lambda: SimpleNamespace(database_url=f"sqlite+aiosqlite:///{tmp_path}/t.db"))
+    monkeypatch.setattr(database, "_engine", None)
+    monkeypatch.setattr(database, "AsyncSessionLocal", None)
+    await database.create_db_and_tables()
+    candidate = Candidate(VOLUME_SPIKE, VOLUME, "SOXL", datetime(2026, 10, 6, 10, 14, tzinfo=ET), 10.2, CUR)
+    first = SignalService()
+    await first._handle_candidate(candidate)
+    reloaded = SignalService()
+    await reloaded._load_history()
+    assert first.history[0]["category"] == VOLUME
+    assert (reloaded.history[0]["signal_type"], reloaded.history[0]["category"]) == (VOLUME_SPIKE, VOLUME)
+    await database._engine.dispose()
 
 
 def test_settings_validation(monkeypatch):

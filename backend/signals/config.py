@@ -19,6 +19,9 @@ class SignalSettings(BaseSettings):
     bb_std: float = Field(2.0, gt=0, le=5)
     rvol_period: int = Field(20, ge=2, le=200)
     rvol_threshold: float = Field(1.5, ge=0, le=20)
+    trigger_volume_enabled: bool = True
+    trigger_ema_enabled: bool = True
+    trigger_vwap_enabled: bool = False
     include_premarket: bool = False
     open_blackout_minutes: int = Field(10, ge=0, le=120)
     close_blackout_minutes: int = Field(10, ge=0, le=120)

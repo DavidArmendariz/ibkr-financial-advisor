@@ -16,7 +16,7 @@ export function SignalsPage() {
         <div>
           <h1 className="text-lg font-semibold">Signals</h1>
           <p className="text-sm text-muted-foreground">
-            Real-time {symbol} entry alerts from deterministic rules, optionally filtered by your AI provider. Alerts
+            Real-time {symbol} volume and technical alerts from deterministic rules, optionally filtered by your AI provider. Alerts
             only: no orders are placed.
           </p>
         </div>

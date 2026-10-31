@@ -1,29 +1,68 @@
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Callable, Optional
 
 from backend.signals.models import IndicatorValues
 
-LONG_ENTRY = "LONG_ENTRY"
+VOLUME_SPIKE = "VOLUME_SPIKE"
+EMA_CROSS = "EMA_CROSS"
+VWAP_CROSS = "VWAP_CROSS"
+
+VOLUME = "volume"
+TECHNICAL = "technical"
 
 
 def crosses_above(prev_value: float, prev_level: float, value: float, level: float) -> bool:
     return prev_value <= prev_level and value > level
 
 
-def is_long_entry(
-    prev_close: float,
-    prev: IndicatorValues,
+def volume_spike(
+    prev_close: Optional[float],
+    prev: Optional[IndicatorValues],
     close: float,
     cur: IndicatorValues,
     rvol_threshold: float,
 ) -> bool:
-    if not (prev.vwap is not None and cur.ready()):
+    return cur.rvol > rvol_threshold
+
+
+def ema_cross(
+    prev_close: Optional[float],
+    prev: Optional[IndicatorValues],
+    close: float,
+    cur: IndicatorValues,
+    rvol_threshold: float,
+) -> bool:
+    if prev is None or prev.ema_fast is None or prev.ema_slow is None:
         return False
-    return (
-        crosses_above(prev_close, prev.vwap, close, cur.vwap)
-        and cur.ema_fast > cur.ema_slow
-        and cur.rvol > rvol_threshold
-    )
+    return crosses_above(prev.ema_fast, prev.ema_slow, cur.ema_fast, cur.ema_slow)
+
+
+def vwap_cross(
+    prev_close: Optional[float],
+    prev: Optional[IndicatorValues],
+    close: float,
+    cur: IndicatorValues,
+    rvol_threshold: float,
+) -> bool:
+    if prev is None or prev.vwap is None:
+        return False
+    return crosses_above(prev_close, prev.vwap, close, cur.vwap)
+
+
+@dataclass(frozen=True)
+class Trigger:
+    signal_type: str
+    category: str
+    setting: str  # the SignalSettings switch
+    fires: Callable[..., bool]
+
+
+TRIGGERS = (
+    Trigger(VOLUME_SPIKE, VOLUME, "trigger_volume_enabled", volume_spike),
+    Trigger(EMA_CROSS, TECHNICAL, "trigger_ema_enabled", ema_cross),
+    Trigger(VWAP_CROSS, TECHNICAL, "trigger_vwap_enabled", vwap_cross),
+)
 
 
 def in_blackout(

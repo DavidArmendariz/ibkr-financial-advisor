@@ -290,6 +290,7 @@ class SignalService:
             "time": candidate.time.isoformat(),
             "symbol": candidate.symbol,
             "signal_type": candidate.signal_type,
+            "category": candidate.category,
             "price": candidate.price,
             "indicators": snapshot["indicators"],
             "bars": snapshot["bars"],
@@ -303,7 +304,7 @@ class SignalService:
     async def _persist(self, record: dict, time: datetime) -> None:
         try:
             async with database.AsyncSessionLocal() as session:
-                payload = {k: record[k] for k in ("indicators", "bars", "llm", "notified")}
+                payload = {k: record[k] for k in ("category", "indicators", "bars", "llm", "notified")}
                 session.add(
                     SignalEvent(
                         id=record["id"],

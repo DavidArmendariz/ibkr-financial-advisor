@@ -22,6 +22,8 @@ class SignalSettings(BaseSettings):
     trigger_volume_enabled: bool = True
     trigger_ema_enabled: bool = True
     trigger_vwap_enabled: bool = False
+    trigger_vwap_band_enabled: bool = True
+    vwap_band_std: float = Field(2.0, gt=0, le=5)
     include_premarket: bool = False
     open_blackout_minutes: int = Field(10, ge=0, le=120)
     close_blackout_minutes: int = Field(10, ge=0, le=120)

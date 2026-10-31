@@ -10,6 +10,8 @@ const FILTERS: { label: string; type: string | null }[] = [
   { label: 'Relative volume', type: 'VOLUME_SPIKE' },
   { label: 'EMA cross', type: 'EMA_CROSS' },
   { label: 'VWAP cross', type: 'VWAP_CROSS' },
+  { label: 'VWAP band above', type: 'VWAP_BAND_ABOVE' },
+  { label: 'VWAP band below', type: 'VWAP_BAND_BELOW' },
 ]
 
 export function SignalHistoryPage() {

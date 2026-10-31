@@ -21,6 +21,7 @@ class Bar:
 @dataclass(frozen=True)
 class IndicatorValues:
     vwap: Optional[float] = None
+    vwap_std: Optional[float] = None
     ema_fast: Optional[float] = None
     ema_slow: Optional[float] = None
     bb_mid: Optional[float] = None

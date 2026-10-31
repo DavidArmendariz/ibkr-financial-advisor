@@ -12,12 +12,16 @@ from backend.signals.rules import (
     TECHNICAL,
     VOLUME,
     VOLUME_SPIKE,
+    VWAP_BAND_ABOVE,
+    VWAP_BAND_BELOW,
     VWAP_CROSS,
     cooldown_elapsed,
     crosses_above,
     ema_cross,
     in_blackout,
     volume_spike,
+    vwap_band_above,
+    vwap_band_below,
     vwap_cross,
 )
 from backend.signals.sessions import ET, SessionCalendar
@@ -39,25 +43,25 @@ def values(**changes):
 
 def test_volume_fires_above_threshold_on_its_own():
     # No cross of any kind: volume doesn't depend on the technical triggers.
-    assert volume_spike(11.0, PREV, 11.0, values(rvol=2.0), 1.5)
-    assert not volume_spike(11.0, PREV, 11.0, values(rvol=1.5), 1.5)
-    assert not volume_spike(11.0, PREV, 11.0, values(rvol=2.0), 3.0)
-    assert volume_spike(None, None, 11.0, values(rvol=2.0), 1.5)
+    assert volume_spike(11.0, PREV, 11.0, values(rvol=2.0), settings())
+    assert not volume_spike(11.0, PREV, 11.0, values(rvol=1.5), settings())
+    assert not volume_spike(11.0, PREV, 11.0, values(rvol=2.0), settings(rvol_threshold=3.0))
+    assert volume_spike(None, None, 11.0, values(rvol=2.0), settings())
 
 
 def test_ema_cross_fires_only_on_the_crossing_bar():
     below = IndicatorValues(vwap=10.0, ema_fast=9.9, ema_slow=10.0, rvol=1.0)
-    assert ema_cross(9.0, below, 9.0, values(ema_fast=10.1, rvol=0.1), 1.5)  # below VWAP, on low volume
-    assert not ema_cross(9.0, PREV, 9.0, values(ema_fast=10.2), 1.5)  # already above
-    assert not ema_cross(9.0, below, 9.0, values(ema_fast=9.95), 1.5)  # still below
-    assert not ema_cross(None, None, 9.0, values(ema_fast=10.1), 1.5)  # no bar this session
+    assert ema_cross(9.0, below, 9.0, values(ema_fast=10.1, rvol=0.1), settings())  # below VWAP, on low volume
+    assert not ema_cross(9.0, PREV, 9.0, values(ema_fast=10.2), settings())  # already above
+    assert not ema_cross(9.0, below, 9.0, values(ema_fast=9.95), settings())  # still below
+    assert not ema_cross(None, None, 9.0, values(ema_fast=10.1), settings())  # no bar this session
 
 
 def test_vwap_cross_ignores_trend_and_volume():
-    assert vwap_cross(9.95, PREV, 10.05, values(ema_fast=9.0, rvol=0.1), 1.5)
-    assert not vwap_cross(10.05, PREV, 10.1, CUR, 1.5)  # already above
-    assert not vwap_cross(9.9, PREV, 9.95, CUR, 1.5)  # still below
-    assert not vwap_cross(None, None, 10.05, CUR, 1.5)  # no bar this session
+    assert vwap_cross(9.95, PREV, 10.05, values(ema_fast=9.0, rvol=0.1), settings())
+    assert not vwap_cross(10.05, PREV, 10.1, CUR, settings())  # already above
+    assert not vwap_cross(9.9, PREV, 9.95, CUR, settings())  # still below
+    assert not vwap_cross(None, None, 10.05, CUR, settings())  # no bar this session
 
 
 def session(day=date(2026, 10, 6)):
@@ -94,12 +98,71 @@ def test_calendar_from_liquid_hours():
     assert cal.session(date(2026, 12, 5)) is None  # Saturday
 
 
+# ── VWAP band: VWAP 10, spread 1, so N=2 puts the bands at 12 and 8 ─────────
+
+
+def band(vwap=10.0, std=1.0):
+    return values(vwap=vwap, vwap_std=std)
+
+
+def test_band_above_fires_on_the_cross_only():
+    assert vwap_band_above(11.9, band(), 12.1, band(), settings())
+    assert not vwap_band_above(12.1, band(), 12.3, band(), settings())  # staying above
+    assert not vwap_band_above(11.0, band(), 11.9, band(), settings())  # still inside
+    assert vwap_band_above(12.0, band(), 12.1, band(), settings())  # back at the band, crossing again
+
+
+def test_band_below_fires_on_the_cross_only():
+    assert vwap_band_below(8.1, band(), 7.9, band(), settings())
+    assert not vwap_band_below(7.9, band(), 7.7, band(), settings())  # staying below
+    assert not vwap_band_below(9.0, band(), 8.1, band(), settings())  # still inside
+
+
+def test_band_follows_the_setting():
+    assert not vwap_band_above(11.9, band(), 12.1, band(), settings(vwap_band_std=3.0))
+    assert vwap_band_above(12.9, band(), 13.1, band(), settings(vwap_band_std=3.0))
+    assert vwap_band_below(7.1, band(), 6.9, band(), settings(vwap_band_std=3.0))
+
+
+def test_band_needs_a_spread_and_a_bar_this_session():
+    for check, close in ((vwap_band_above, 12.1), (vwap_band_below, 7.9)):
+        assert not check(10.0, band(), close, band(std=0.0), settings())
+        assert not check(None, None, close, band(), settings())
+
+
+def test_band_ignores_the_other_indicators():
+    quiet = band().__class__(**{**band().to_dict(), "ema_fast": 9.0, "rvol": 0.1})
+    assert vwap_band_above(11.9, band(), 12.1, quiet, settings())
+    assert vwap_band_below(8.1, band(), 7.9, quiet, settings())
+
+
+def test_band_setting_stays_out_of_the_pipeline_key():
+    assert settings(vwap_band_std=1.0).pipeline_key() == settings(vwap_band_std=3.0, trigger_vwap_band_enabled=True).pipeline_key()
+
+
+def test_band_directions_keep_separate_cooldowns():
+    day = date(2026, 10, 6)
+    only_band = dict(trigger_volume_enabled=False, trigger_ema_enabled=False, trigger_vwap_band_enabled=True, cooldown_minutes=30)
+    p = SignalPipeline(settings(**only_band))
+    calm = [bar(day, 10, i, 10.0 + (0.02 if i % 2 else -0.02), 1000) for i in range(20)]
+    assert run(p, calm) == []
+    assert types(run(p, [bar(day, 10, 20, 12.0, 1000)])) == [VWAP_BAND_ABOVE]
+    assert types(run(p, [bar(day, 10, 21, 8.0, 1000)])) == [VWAP_BAND_BELOW]
+
+
+def test_band_range_is_validated(monkeypatch):
+    monkeypatch.setattr(signal_config, "save_env_values", lambda values: None)
+    for bad in (0, 5.5):
+        with pytest.raises(ValueError):
+            save_signal_settings({"vwap_band_std": bad})
+
+
 # ── Pipeline: rules applied to a bar stream ──────────────────────────────────
 
 
 def settings(**overrides):
     base = dict(ema_fast=3, ema_slow=5, bb_period=5, rvol_period=3, rvol_threshold=1.5, open_blackout_minutes=10,
-                close_blackout_minutes=10, cooldown_minutes=5)
+                close_blackout_minutes=10, cooldown_minutes=5, trigger_vwap_band_enabled=False)
     return SignalSettings.model_construct(**{**base, **overrides})
 
 
@@ -134,13 +197,15 @@ def test_pipeline_emits_trigger_with_snapshot():
     snap = signals[0].snapshot()
     assert snap["price"] == 10.2
     assert snap["category"] == VOLUME
-    assert set(snap["indicators"]) == {"vwap", "ema_fast", "ema_slow", "bb_mid", "bb_upper", "bb_lower", "rvol"}
+    assert set(snap["indicators"]) == {"vwap", "vwap_std", "ema_fast", "ema_slow", "bb_mid", "bb_upper", "bb_lower", "rvol"}
     assert 1 <= len(snap["bars"]) <= 20
     assert snap["time"].startswith("2026-10-06T10:14")
 
 
 def test_defaults_leave_vwap_off():
     fields = SignalSettings.model_fields
+    assert fields["trigger_vwap_band_enabled"].default is True
+    assert fields["vwap_band_std"].default == 2.0
     assert fields["trigger_volume_enabled"].default is True
     assert fields["trigger_ema_enabled"].default is True
     assert fields["trigger_vwap_enabled"].default is False

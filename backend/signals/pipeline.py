@@ -82,7 +82,7 @@ class SignalPipeline:
         for t in TRIGGERS:
             if (
                 getattr(s, t.setting)
-                and t.fires(prev_close, prev_values, bar.close, values, s.rvol_threshold)
+                and t.fires(prev_close, prev_values, bar.close, values, s)
                 and cooldown_elapsed(self.last_fired.get(t.signal_type), close_time, s.cooldown_minutes)
             ):
                 self.last_fired[t.signal_type] = close_time

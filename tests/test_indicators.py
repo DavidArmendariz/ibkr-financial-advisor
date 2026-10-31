@@ -108,3 +108,23 @@ def test_vwap_ignores_premarket_unless_included():
     with_pre = SessionVWAP(lambda t: cal.vwap_anchor(t, include_premarket=True))
     assert with_pre.update(premarket) == pytest.approx(10)
     assert with_pre.update(regular) == pytest.approx(15)
+
+
+def test_vwap_std_is_volume_weighted_and_restarts_each_session():
+    from datetime import date, datetime, timezone
+
+    from backend.signals.indicators import SessionVWAP
+    from backend.signals.models import Bar
+
+    def flat(day, minute, price, volume):
+        return Bar(datetime(2026, 10, day, 15, minute, tzinfo=timezone.utc), price, price, price, price, volume)
+
+    vwap = SessionVWAP(lambda t: datetime(t.year, t.month, t.day, 13, 30, tzinfo=timezone.utc))
+    assert vwap.update(flat(6, 0, 10.0, 1)) == 10.0 and vwap.std == 0.0
+    assert vwap.update(flat(6, 1, 20.0, 1)) == 15.0 and vwap.std == 5.0
+    # Volume 3 at 20 and 1 at 10: VWAP 17.5, variance (100 + 3 * 400) / 4 - 17.5².
+    weighted = SessionVWAP(lambda t: datetime(t.year, t.month, t.day, 13, 30, tzinfo=timezone.utc))
+    weighted.update(flat(6, 0, 10.0, 1))
+    assert weighted.update(flat(6, 1, 20.0, 3)) == 17.5
+    assert abs(weighted.std - 4.330127) < 1e-5
+    assert vwap.update(flat(7, 0, 30.0, 1)) == 30.0 and vwap.std == 0.0

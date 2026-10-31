@@ -52,18 +52,26 @@ class SessionVWAP:
         self.anchor_for = anchor_for
         self.anchor: Optional[datetime] = None
         self.pv = 0.0
+        self.pv_sq = 0.0
         self.volume = 0.0
+        self.std: Optional[float] = None  # volume-weighted, around the VWAP
 
     def update(self, bar: Bar) -> Optional[float]:
+        self.std = None
         anchor = self.anchor_for(bar.time)
         if anchor is None or bar.time < anchor:
             return None
         if anchor != self.anchor:
-            self.anchor, self.pv, self.volume = anchor, 0.0, 0.0
+            self.anchor, self.pv, self.pv_sq, self.volume = anchor, 0.0, 0.0, 0.0
         typical = (bar.high + bar.low + bar.close) / 3
         self.pv += typical * bar.volume
+        self.pv_sq += typical * typical * bar.volume
         self.volume += bar.volume
-        return self.pv / self.volume if self.volume > 0 else None
+        if self.volume <= 0:
+            return None
+        vwap = self.pv / self.volume
+        self.std = math.sqrt(max(self.pv_sq / self.volume - vwap * vwap, 0.0))
+        return vwap
 
 
 class RelativeVolume:
@@ -105,6 +113,7 @@ class IndicatorSet:
         bands = self.bollinger.update(bar.close)
         return IndicatorValues(
             vwap=self.vwap.update(bar),
+            vwap_std=self.vwap.std,
             ema_fast=self.ema_fast.update(bar.close),
             ema_slow=self.ema_slow.update(bar.close),
             bb_mid=bands[0] if bands else None,

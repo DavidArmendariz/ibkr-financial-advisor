@@ -2,11 +2,14 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Callable, Optional
 
+from backend.signals.config import SignalSettings
 from backend.signals.models import IndicatorValues
 
 VOLUME_SPIKE = "VOLUME_SPIKE"
 EMA_CROSS = "EMA_CROSS"
 VWAP_CROSS = "VWAP_CROSS"
+VWAP_BAND_ABOVE = "VWAP_BAND_ABOVE"
+VWAP_BAND_BELOW = "VWAP_BAND_BELOW"
 
 VOLUME = "volume"
 TECHNICAL = "technical"
@@ -21,9 +24,9 @@ def volume_spike(
     prev: Optional[IndicatorValues],
     close: float,
     cur: IndicatorValues,
-    rvol_threshold: float,
+    s: SignalSettings,
 ) -> bool:
-    return cur.rvol > rvol_threshold
+    return cur.rvol > s.rvol_threshold
 
 
 def ema_cross(
@@ -31,7 +34,7 @@ def ema_cross(
     prev: Optional[IndicatorValues],
     close: float,
     cur: IndicatorValues,
-    rvol_threshold: float,
+    s: SignalSettings,
 ) -> bool:
     if prev is None or prev.ema_fast is None or prev.ema_slow is None:
         return False
@@ -43,11 +46,42 @@ def vwap_cross(
     prev: Optional[IndicatorValues],
     close: float,
     cur: IndicatorValues,
-    rvol_threshold: float,
+    s: SignalSettings,
 ) -> bool:
     if prev is None or prev.vwap is None:
         return False
     return crosses_above(prev_close, prev.vwap, close, cur.vwap)
+
+
+def _has_band(prev: Optional[IndicatorValues], cur: IndicatorValues) -> bool:
+    # A zero spread (first prints of a session) would put the band on VWAP itself.
+    return prev is not None and prev.vwap is not None and prev.vwap_std is not None and bool(cur.vwap_std)
+
+
+def vwap_band_above(
+    prev_close: Optional[float],
+    prev: Optional[IndicatorValues],
+    close: float,
+    cur: IndicatorValues,
+    s: SignalSettings,
+) -> bool:
+    if not _has_band(prev, cur):
+        return False
+    n = s.vwap_band_std
+    return crosses_above(prev_close, prev.vwap + n * prev.vwap_std, close, cur.vwap + n * cur.vwap_std)
+
+
+def vwap_band_below(
+    prev_close: Optional[float],
+    prev: Optional[IndicatorValues],
+    close: float,
+    cur: IndicatorValues,
+    s: SignalSettings,
+) -> bool:
+    if not _has_band(prev, cur):
+        return False
+    n = s.vwap_band_std
+    return prev_close >= prev.vwap - n * prev.vwap_std and close < cur.vwap - n * cur.vwap_std
 
 
 @dataclass(frozen=True)
@@ -62,6 +96,8 @@ TRIGGERS = (
     Trigger(VOLUME_SPIKE, VOLUME, "trigger_volume_enabled", volume_spike),
     Trigger(EMA_CROSS, TECHNICAL, "trigger_ema_enabled", ema_cross),
     Trigger(VWAP_CROSS, TECHNICAL, "trigger_vwap_enabled", vwap_cross),
+    Trigger(VWAP_BAND_ABOVE, TECHNICAL, "trigger_vwap_band_enabled", vwap_band_above),
+    Trigger(VWAP_BAND_BELOW, TECHNICAL, "trigger_vwap_band_enabled", vwap_band_below),
 )
 
 

@@ -1,10 +1,10 @@
 # DeltaAdvisor
 
-Local-first macOS desktop app (Electron + React) with a Python FastAPI backend, connected to Interactive Brokers through TWS / IB Gateway. Features: portfolio dashboard, AI Advisor chat, SOXL real-time signal alerts, SOXL gamma exposure, macro indicators. **It never places orders.**
+Local-first macOS desktop app (Electron + React) with a Python FastAPI backend, connected to Interactive Brokers through TWS / IB Gateway. Features: portfolio dashboard, open orders view, AI Advisor chat, SOXL real-time signal alerts, SOXL gamma exposure, macro indicators. **It never places orders.**
 
 ## How changes are made: OpenSpec
 
-Behavior is specified in `openspec/specs/<capability>/spec.md` (ibkr-connection, portfolio-dashboard, ai-advisor, ai-provider-settings, signal-alerts, gamma-exposure, macro-indicators, app-lifecycle, app-navigation). These are the source of truth for what the app does.
+Behavior is specified in `openspec/specs/<capability>/spec.md` (ibkr-connection, portfolio-dashboard, open-orders, ai-advisor, ai-provider-settings, signal-alerts, gamma-exposure, macro-indicators, app-lifecycle, app-navigation). These are the source of truth for what the app does.
 
 For any new feature or behavior change, use the OpenSpec workflow instead of editing code directly:
 
@@ -44,7 +44,7 @@ Before calling work done: pytest, tsc and vite build pass, and UI changes are lo
 - Comments explain *why*, sparingly. No docstrings. Match the surrounding style.
 - Settings are persisted to `.env` with `backend.config.save_env_values` (owner-only file), one prefix per feature (`SIGNALS_*`, `GAMMA_*`), and applied live without a restart.
 - API keys stay in the backend. The renderer only ever sees "set / …abcd hint". All LLM calls happen in the backend.
-- IBKR access is read-only (`readonly=True`). Never add order placement.
+- IBKR access is read-only (`readonly=True`). Never add order placement. Orders are only read, and the Orders view is tested with TWS's Read-Only API setting off, so the app's code is the safeguard (`tests/test_orders.py` guards it).
 - Auto-connect only ever targets the **paper** port; live always needs an explicit click.
 - Time math is in US/Eastern via `zoneinfo` (`backend/signals/sessions.py: ET`). Trading hours come from IBKR `liquidHours` (handles half-days).
 - Charts: palette and mark rules from the dataviz skill; series colors are the validated dark-mode categorical slots (`#3987e5`, `#d95926`, `#199e70`, `#c98500`, …).

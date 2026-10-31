@@ -39,6 +39,8 @@ Built with Electron + React on the frontend and a Python FastAPI backend. The ap
 **Macro**
 - Crude oil (NYMEX WTI front-month future), gold (COMEX GC), S&P 500 futures (CME ES), Nasdaq 100 futures (CME NQ), Dow futures (CBOT YM), the US 10-year Treasury yield (CBOE TNX, shown in % with the change in basis points), the VIX (CBOE index), USD/COP, and the S&P 500 (SPX), Nasdaq 100 (NDX) and Dow Jones (INDU) spot indexes
 - USD/COP is Banco de la República's official daily rate (TRM) from Colombia's open-data portal, since IBKR doesn't offer the Colombian peso; the card shows the dates the rate is valid for and the last 30 rates
+- Grouped into **Equity indexes**, **Rates & volatility**, and **Commodities & currency**
+- The S&P 500, Nasdaq 100 and Dow each have one card with the futures first and the spot index below, each with its own value, change, status and any error. The sparkline follows the futures, which trade nearly around the clock
 - Each card shows the last value, the change since the previous close, a sparkline of the latest session, the futures contract month, and whether the value is live, delayed or the last close (market closed)
 - Futures roll to the next month on their own, following IBKR's continuous contract
 - Works without futures subscriptions using IBKR's free delayed data, labelled as delayed
@@ -346,7 +348,7 @@ ibkr-financial-advisor/
     │   ├── orders/           # OrdersTable
     │   ├── chat/             # Session list, chat window, markdown + chart rendering, risk profile select
     │   ├── signals/          # Status cards, live values, signal table, settings form
-    │   └── macro/            # Indicator card, sparkline
+    │   └── macro/            # Section layout, indicator and index cards, sparkline
     └── pages/
         ├── Dashboard.tsx
         ├── Orders.tsx

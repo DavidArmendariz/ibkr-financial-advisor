@@ -389,3 +389,11 @@ def test_pipeline_keeps_bars_with_their_indicator_values():
     assert [b for b, _ in p.history] == bars
     assert p.history[-1][1] == p.last_values
     assert p.history[0][1].ema_fast is None and p.history[-1][1].ema_fast is not None
+
+
+def test_after_hours_vwap_raises_no_signals():
+    day = date(2026, 10, 6)
+    p = SignalPipeline(settings(include_premarket=True, trigger_vwap_enabled=True, trigger_volume_enabled=False, trigger_ema_enabled=False))
+    bars = [bar(day, 15, 40 + i, 10.0 - i * 0.1, 1000) for i in range(19)] + [bar(day, 16, 5, 20.0, 9000)]
+    assert run(p, bars) == []
+    assert p.last_values.vwap is not None

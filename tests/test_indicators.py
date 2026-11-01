@@ -164,3 +164,23 @@ def test_rsi_matches_pandas():
     rsi = RSI(period)
     ours = [v for v in (rsi.update(c) for c in closes) if v is not None]
     assert ours == pytest.approx(expected.tolist())
+
+
+def test_vwap_runs_through_after_hours_only_with_extended_hours():
+    calendar = SessionCalendar()
+    after_close = datetime(2026, 10, 6, 17, 0, tzinfo=ET)
+    assert calendar.vwap_anchor(after_close, True) == datetime(2026, 10, 6, 4, 0, tzinfo=ET)
+    assert calendar.vwap_anchor(after_close, False) is None
+    assert calendar.vwap_anchor(datetime(2026, 10, 6, 20, 0, tzinfo=ET), True) is None
+
+
+def test_after_hours_vwap_restarts_next_session():
+    calendar = SessionCalendar()
+    vwap = SessionVWAP(lambda t: calendar.vwap_anchor(t, True))
+
+    def flat(day, hour, price):
+        return Bar(datetime(2026, 10, day, hour, 0, tzinfo=ET), price, price, price, price, 100)
+
+    vwap.update(flat(6, 10, 10.0))
+    assert vwap.update(flat(6, 17, 20.0)) == 15.0
+    assert vwap.update(flat(7, 4, 30.0)) == 30.0

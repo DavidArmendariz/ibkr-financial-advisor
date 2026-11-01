@@ -6,6 +6,7 @@ ET = ZoneInfo("America/New_York")
 RTH_OPEN = time(9, 30)
 RTH_CLOSE = time(16, 0)
 PREMARKET_OPEN = time(4, 0)
+EXTENDED_CLOSE = time(20, 0)
 
 
 class SessionCalendar:
@@ -46,7 +47,10 @@ class SessionCalendar:
             return None
         open_dt, close_dt = hours
         start = datetime.combine(open_dt.date(), PREMARKET_OPEN, ET) if include_premarket else open_dt
-        return start if start <= t < close_dt else None
+        # Extended-hours bars only arrive when pre-market is included, so the line then
+        # runs through after-hours; regular-only streams simply end at the close.
+        end = datetime.combine(open_dt.date(), EXTENDED_CLOSE, ET) if include_premarket else close_dt
+        return start if start <= t < end else None
 
 
 def minutes(n: int) -> timedelta:

@@ -29,7 +29,7 @@ Built with Electron + React on the frontend and a Python FastAPI backend. The ap
 
 **Signals (SOXL real-time alerts)**
 - Streams 5-second real-time bars for SOXL and combines them into 1-minute bars (timeframe configurable), after warming up from historical data
-- Computes indicators incrementally on each closed bar: session VWAP (from 09:30 ET, or 04:00 ET with pre-market), EMA 9 / 21, Bollinger Bands (20, 2σ), and relative volume
+- Computes indicators incrementally on each closed bar: session VWAP (from 09:30 ET, or 04:00 ET through after-hours with pre-market), EMA 9 / 21, Bollinger Bands (20, 2σ), and relative volume
 - Independent triggers, each with its own on/off switch, notification and cooldown, grouped by category. Nothing is combined: if two fire on one bar, you get two alerts
   - **Volume triggers:** relative volume above a threshold you set (on, default 1.5x). This alert has no direction
   - **Technical triggers:** EMA cross, when EMA fast crosses above EMA slow (on); VWAP cross, when the close crosses above VWAP (off); and VWAP band, when the close crosses above or below VWAP by a number of standard deviations you set (on, default 2). Each band direction alerts separately, and the alert states the level rather than a buy or sell view

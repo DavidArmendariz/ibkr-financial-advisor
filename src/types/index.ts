@@ -110,6 +110,7 @@ export interface SignalStatus {
 export interface SignalIndicators {
   vwap: number | null
   vwap_std?: number | null // missing on signals recorded before the VWAP band trigger
+  rsi?: number | null // missing on signals recorded before the RSI trigger
   ema_fast: number | null
   ema_slow: number | null
   bb_mid: number | null
@@ -226,6 +227,10 @@ export interface SignalSettings {
   trigger_vwap_enabled: boolean
   trigger_vwap_band_enabled: boolean
   vwap_band_std: number
+  trigger_rsi_enabled: boolean
+  rsi_period: number
+  rsi_upper: number
+  rsi_lower: number
   include_premarket: boolean
   open_blackout_minutes: number
   close_blackout_minutes: number

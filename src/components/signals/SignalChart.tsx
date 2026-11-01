@@ -30,13 +30,15 @@ const MARKER_TEXT: Record<string, string> = {
   VWAP_CROSS: 'VWAP',
   VWAP_BAND_ABOVE: 'BAND',
   VWAP_BAND_BELOW: 'BAND',
+  RSI_ABOVE: 'RSI',
+  RSI_BELOW: 'RSI',
   LONG_ENTRY: 'LONG',
 }
 
 // Volume has no direction, so it sits above the bar as a dot rather than an up arrow.
 function markerStyle(sig: SignalRecord) {
   const text = MARKER_TEXT[sig.signal_type] ?? sig.signal_type
-  if (sig.signal_type === 'VWAP_BAND_BELOW') return { position: 'aboveBar', color: DOWN, shape: 'arrowDown', text } as const
+  if (sig.signal_type === 'VWAP_BAND_BELOW' || sig.signal_type === 'RSI_BELOW') return { position: 'aboveBar', color: DOWN, shape: 'arrowDown', text } as const
   return sig.category === 'volume'
     ? ({ position: 'aboveBar', color: '#c98500', shape: 'circle', text } as const)
     : ({ position: 'belowBar', color: UP, shape: 'arrowUp', text } as const)

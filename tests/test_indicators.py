@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import pytest
 
-from backend.signals.indicators import EMA, Bollinger, RelativeVolume, SessionVWAP
+from backend.signals.indicators import EMA, RSI, Bollinger, RelativeVolume, SessionVWAP
 from backend.signals.models import Bar
 from backend.signals.sessions import ET, SessionCalendar
 
@@ -128,3 +128,39 @@ def test_vwap_std_is_volume_weighted_and_restarts_each_session():
     assert weighted.update(flat(6, 1, 20.0, 3)) == 17.5
     assert abs(weighted.std - 4.330127) < 1e-5
     assert vwap.update(flat(7, 0, 30.0, 1)) == 30.0 and vwap.std == 0.0
+
+
+def test_rsi_hand_computed():
+    rsi = RSI(2)
+    assert rsi.update(10.0) is None and rsi.update(11.0) is None
+    assert rsi.update(10.0) == 50.0  # gains 1, losses 1 over 2 bars
+    assert rsi.update(12.0) == pytest.approx(100 - 100 / 6)  # averages 1.25 and 0.25
+
+
+def test_rsi_with_no_losses_is_100():
+    rsi = RSI(3)
+    assert [rsi.update(v) for v in (1.0, 2.0, 3.0, 4.0, 5.0)] == [None, None, None, 100.0, 100.0]
+
+
+def test_rsi_of_a_flat_market_is_neutral():
+    rsi = RSI(2)
+    assert [rsi.update(10.0) for _ in range(4)][-1] == 50.0
+
+
+def test_rsi_matches_pandas():
+    random.seed(5)
+    closes = [100.0]
+    for _ in range(300):
+        closes.append(closes[-1] + random.gauss(0, 1))
+    period = 14
+    changes = pd.Series(closes).diff().dropna().reset_index(drop=True)
+
+    def wilder(series):
+        seeded = pd.concat([pd.Series([series.iloc[:period].mean()]), series.iloc[period:]], ignore_index=True)
+        return seeded.ewm(alpha=1 / period, adjust=False).mean()
+
+    gains, losses = wilder(changes.clip(lower=0)), wilder((-changes).clip(lower=0))
+    expected = 100 - 100 / (1 + gains / losses)
+    rsi = RSI(period)
+    ours = [v for v in (rsi.update(c) for c in closes) if v is not None]
+    assert ours == pytest.approx(expected.tolist())

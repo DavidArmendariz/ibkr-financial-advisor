@@ -12,6 +12,8 @@ from backend.signals.rules import (
     TECHNICAL,
     VOLUME,
     VOLUME_SPIKE,
+    RSI_ABOVE,
+    RSI_BELOW,
     VWAP_BAND_ABOVE,
     VWAP_BAND_BELOW,
     VWAP_CROSS,
@@ -19,6 +21,8 @@ from backend.signals.rules import (
     crosses_above,
     ema_cross,
     in_blackout,
+    rsi_above,
+    rsi_below,
     volume_spike,
     vwap_band_above,
     vwap_band_below,
@@ -150,6 +154,68 @@ def test_band_directions_keep_separate_cooldowns():
     assert types(run(p, [bar(day, 10, 21, 8.0, 1000)])) == [VWAP_BAND_BELOW]
 
 
+def test_rsi_above_fires_on_the_cross_only():
+    assert rsi_above(None, values(rsi=74.0), 0, values(rsi=76.0), settings())
+    assert rsi_above(None, values(rsi=75.0), 0, values(rsi=76.0), settings())  # back at the level, crossing again
+    assert not rsi_above(None, values(rsi=76.0), 0, values(rsi=80.0), settings())  # staying above
+    assert not rsi_above(None, values(rsi=60.0), 0, values(rsi=74.0), settings())  # still inside
+
+
+def test_rsi_below_fires_on_the_cross_only():
+    assert rsi_below(None, values(rsi=26.0), 0, values(rsi=24.0), settings())
+    assert not rsi_below(None, values(rsi=24.0), 0, values(rsi=20.0), settings())  # staying below
+    assert not rsi_below(None, values(rsi=40.0), 0, values(rsi=26.0), settings())  # still inside
+
+
+def test_rsi_follows_the_levels():
+    tight = settings(rsi_upper=60.0, rsi_lower=40.0)
+    assert rsi_above(None, values(rsi=59.0), 0, values(rsi=61.0), tight)
+    assert rsi_below(None, values(rsi=41.0), 0, values(rsi=39.0), tight)
+    assert not rsi_above(None, values(rsi=59.0), 0, values(rsi=61.0), settings())
+
+
+def test_rsi_needs_values_and_a_bar_this_session():
+    for check, rsi in ((rsi_above, 80.0), (rsi_below, 20.0)):
+        assert not check(None, None, 0, values(rsi=rsi), settings())
+        assert not check(None, values(rsi=None), 0, values(rsi=rsi), settings())
+        assert not check(None, values(rsi=50.0), 0, values(rsi=None), settings())
+
+
+def test_rsi_ignores_the_other_indicators():
+    quiet = values(rsi=80.0, ema_fast=9.0, rvol=0.1)
+    assert rsi_above(None, values(rsi=70.0), 0, quiet, settings())
+
+
+def test_rsi_levels_apply_live_but_the_period_rebuilds():
+    assert settings().pipeline_key() == settings(rsi_upper=60.0, rsi_lower=10.0, trigger_rsi_enabled=True).pipeline_key()
+    assert settings().pipeline_key() != settings(rsi_period=7).pipeline_key()
+
+
+def test_rsi_directions_keep_separate_cooldowns():
+    day = date(2026, 10, 6)
+    only_rsi = dict(trigger_volume_enabled=False, trigger_ema_enabled=False, trigger_rsi_enabled=True, cooldown_minutes=30, rsi_period=3)
+    p = SignalPipeline(settings(**only_rsi))
+    calm = [bar(day, 10, i, 10.0 + (0.02 if i % 2 else -0.02), 1000) for i in range(12)]
+    assert run(p, calm) == []
+    assert types(run(p, [bar(day, 10, 12, 11.0, 1000)])) == [RSI_ABOVE]
+    assert types(run(p, [bar(day, 10, 13, 9.0, 1000), bar(day, 10, 14, 8.0, 1000)])) == [RSI_BELOW]
+
+
+def test_rsi_period_counts_towards_warmup():
+    assert SignalSettings.model_construct(ema_fast=3, ema_slow=5, bb_period=5, rvol_period=3, rsi_period=100).warmup_bars() == 301
+
+
+def test_rsi_levels_must_be_in_order(monkeypatch):
+    monkeypatch.setattr(signal_config, "save_env_values", lambda values: None)
+    signal_config.get_signal_settings.cache_clear()
+    try:
+        for bad in ({"rsi_lower": 80.0}, {"rsi_upper": 25.0}, {"rsi_upper": 100.0}):
+            with pytest.raises(ValueError):
+                save_signal_settings(bad)
+    finally:
+        signal_config.get_signal_settings.cache_clear()
+
+
 def test_band_range_is_validated(monkeypatch):
     monkeypatch.setattr(signal_config, "save_env_values", lambda values: None)
     for bad in (0, 5.5):
@@ -162,7 +228,8 @@ def test_band_range_is_validated(monkeypatch):
 
 def settings(**overrides):
     base = dict(ema_fast=3, ema_slow=5, bb_period=5, rvol_period=3, rvol_threshold=1.5, open_blackout_minutes=10,
-                close_blackout_minutes=10, cooldown_minutes=5, trigger_vwap_band_enabled=False)
+                close_blackout_minutes=10, cooldown_minutes=5, trigger_vwap_band_enabled=False,
+                trigger_rsi_enabled=False)
     return SignalSettings.model_construct(**{**base, **overrides})
 
 
@@ -197,7 +264,7 @@ def test_pipeline_emits_trigger_with_snapshot():
     snap = signals[0].snapshot()
     assert snap["price"] == 10.2
     assert snap["category"] == VOLUME
-    assert set(snap["indicators"]) == {"vwap", "vwap_std", "ema_fast", "ema_slow", "bb_mid", "bb_upper", "bb_lower", "rvol"}
+    assert set(snap["indicators"]) == {"vwap", "vwap_std", "rsi", "ema_fast", "ema_slow", "bb_mid", "bb_upper", "bb_lower", "rvol"}
     assert 1 <= len(snap["bars"]) <= 20
     assert snap["time"].startswith("2026-10-06T10:14")
 
@@ -206,6 +273,8 @@ def test_defaults_leave_vwap_off():
     fields = SignalSettings.model_fields
     assert fields["trigger_vwap_band_enabled"].default is True
     assert fields["vwap_band_std"].default == 2.0
+    assert fields["trigger_rsi_enabled"].default is True
+    assert (fields["rsi_period"].default, fields["rsi_upper"].default, fields["rsi_lower"].default) == (14, 75.0, 25.0)
     assert fields["trigger_volume_enabled"].default is True
     assert fields["trigger_ema_enabled"].default is True
     assert fields["trigger_vwap_enabled"].default is False

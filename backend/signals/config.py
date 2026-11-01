@@ -24,6 +24,10 @@ class SignalSettings(BaseSettings):
     trigger_vwap_enabled: bool = False
     trigger_vwap_band_enabled: bool = True
     vwap_band_std: float = Field(2.0, gt=0, le=5)
+    trigger_rsi_enabled: bool = True
+    rsi_period: int = Field(14, ge=2, le=200)
+    rsi_upper: float = Field(75.0, gt=0, lt=100)
+    rsi_lower: float = Field(25.0, gt=0, lt=100)
     include_premarket: bool = False
     open_blackout_minutes: int = Field(10, ge=0, le=120)
     close_blackout_minutes: int = Field(10, ge=0, le=120)
@@ -36,7 +40,7 @@ class SignalSettings(BaseSettings):
 
     def warmup_bars(self) -> int:
         # EMAs need a few periods to forget their seed value.
-        return max(3 * self.ema_slow, 3 * self.ema_fast, self.bb_period, self.rvol_period) + 1
+        return max(3 * self.ema_slow, 3 * self.ema_fast, 3 * self.rsi_period, self.bb_period, self.rvol_period) + 1
 
     def pipeline_key(self) -> tuple:
         # Changing any of these invalidates indicator state, so the stream re-warms.
@@ -48,6 +52,7 @@ class SignalSettings(BaseSettings):
             self.bb_period,
             self.bb_std,
             self.rvol_period,
+            self.rsi_period,
             self.include_premarket,
         )
 
@@ -64,6 +69,8 @@ def save_signal_settings(values: dict) -> SignalSettings:
         raise ValueError(f"timeframe_minutes must be one of {ALLOWED_TIMEFRAMES}")
     if validated.ema_fast >= validated.ema_slow:
         raise ValueError("ema_fast must be shorter than ema_slow")
+    if validated.rsi_lower >= validated.rsi_upper:
+        raise ValueError("rsi_lower must be below rsi_upper")
     save_env_values(
         {
             f"SIGNALS_{key.upper()}": str(value).lower() if isinstance(value, bool) else str(value)

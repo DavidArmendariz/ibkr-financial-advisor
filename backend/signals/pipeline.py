@@ -45,6 +45,7 @@ class SignalPipeline:
             bb_period=settings.bb_period,
             bb_std=settings.bb_std,
             rvol_period=settings.rvol_period,
+            rsi_period=settings.rsi_period,
             vwap_anchor_for=lambda t: self.calendar.vwap_anchor(t, settings.include_premarket),
         )
         self.bars: deque[Bar] = deque(maxlen=SNAPSHOT_BARS)

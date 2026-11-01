@@ -139,6 +139,8 @@ async def test_only_market_data_is_sent(kind):
         (VWAP_BAND_ABOVE, ["long"]),
         (VOLUME_SPIKE, ["long", "short"]),
         (VWAP_BAND_BELOW, ["long", "short"]),
+        ("RSI_ABOVE", ["long", "short"]),
+        ("RSI_BELOW", ["long", "short"]),
     ],
 )
 def test_direction_by_trigger(signal_type, directions):

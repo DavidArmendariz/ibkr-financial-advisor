@@ -33,7 +33,8 @@ Built with Electron + React on the frontend and a Python FastAPI backend. The ap
 - Independent triggers, each with its own on/off switch, notification and cooldown, grouped by category. Nothing is combined: if two fire on one bar, you get two alerts
   - **Volume triggers:** relative volume above a threshold you set (on, default 1.5x). This alert has no direction
   - **Technical triggers:** EMA cross, when EMA fast crosses above EMA slow (on); VWAP cross, when the close crosses above VWAP (off); and VWAP band, when the close crosses above or below VWAP by a number of standard deviations you set (on, default 2). Each band direction alerts separately, and the alert states the level rather than a buy or sell view
-- With the defaults, expect about 36 alerts per session, based on 180 sessions of SOXL bars. Raising the relative volume threshold is the quickest way to reduce that
+  - **RSI:** also a technical trigger, when RSI crosses above the upper level or below the lower level you set (on, default 14 periods, 75 and 25). Each direction alerts separately, and an extreme can last, so it isn't a buy or sell signal
+- With the defaults, expect about 39 alerts per session, based on 180 sessions of SOXL bars. Raising the relative volume threshold is the quickest way to reduce that
 - No signals in the first and last 10 minutes of the session (using IBKR's actual trading hours, so half-days are handled), with a 5-minute cooldown per trigger; all configurable
 - Optional **LLM filter**: each signal's snapshot (price, indicators, last 20 bars) goes to the AI provider configured in **Settings**, which answers take/skip with a confidence and a short reason. Only signals it takes above a confidence threshold are notified. On a timeout (5 s), invalid reply, or no configured provider, the signal passes through marked `unfiltered`
 - Native desktop notification for each alert, e.g. `SOXL EMA CROSS @ 167.39`, with its category, the key indicator values and the LLM's reason. Clicking it opens the Signals view. Alerts arrive even while the window is closed, as long as the app is running
@@ -142,6 +143,8 @@ Signal settings are stored in the same file as `SIGNALS_*` keys (for example `SI
 | `SIGNALS_RVOL_PERIOD` / `SIGNALS_RVOL_THRESHOLD` | `20` bars / `1.5` |
 | `SIGNALS_TRIGGER_VOLUME_ENABLED` / `SIGNALS_TRIGGER_EMA_ENABLED` / `SIGNALS_TRIGGER_VWAP_ENABLED` | `true` / `true` / `false` |
 | `SIGNALS_TRIGGER_VWAP_BAND_ENABLED` / `SIGNALS_VWAP_BAND_STD` | `true` / `2.0` (above 0, up to 5) |
+| `SIGNALS_TRIGGER_RSI_ENABLED` / `SIGNALS_RSI_PERIOD` | `true` / `14` |
+| `SIGNALS_RSI_UPPER` / `SIGNALS_RSI_LOWER` | `75` / `25` |
 | `SIGNALS_INCLUDE_PREMARKET` | `false` |
 | `SIGNALS_OPEN_BLACKOUT_MINUTES` / `SIGNALS_CLOSE_BLACKOUT_MINUTES` | `10` / `10` |
 | `SIGNALS_COOLDOWN_MINUTES` | `5` |

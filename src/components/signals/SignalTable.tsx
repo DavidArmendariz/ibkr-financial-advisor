@@ -44,6 +44,7 @@ export function SignalTable<T extends SignalHistoryRecord>({ signals, renderDeta
             <th className="px-3 py-2 text-right font-medium">VWAP</th>
             <th className="px-3 py-2 text-right font-medium">EMA fast / slow</th>
             <th className="px-3 py-2 text-right font-medium">RVOL</th>
+            <th className="px-3 py-2 text-right font-medium">RSI</th>
             <th className="px-3 py-2 font-medium">LLM</th>
             <th className="px-3 py-2 font-medium">Reason</th>
             <th className="px-3 py-2 font-medium" aria-label="Notified" />
@@ -64,6 +65,7 @@ export function SignalTable<T extends SignalHistoryRecord>({ signals, renderDeta
                 {fmtPrice(s.indicators.ema_fast)} / {fmtPrice(s.indicators.ema_slow)}
               </td>
               <td className="px-3 py-2 text-right tabular-nums">{fmtRatio(s.indicators.rvol)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{fmtPrice(s.indicators.rsi)}</td>
               <td className="px-3 py-2">
                 <Decision llm={s.llm} />
               </td>
@@ -80,7 +82,7 @@ export function SignalTable<T extends SignalHistoryRecord>({ signals, renderDeta
             </tr>
             {renderDetails && (
               <tr className="border-b border-border last:border-0">
-                <td colSpan={9} className="px-3 pb-2">
+                <td colSpan={10} className="px-3 pb-2">
                   {renderDetails(s)}
                 </td>
               </tr>

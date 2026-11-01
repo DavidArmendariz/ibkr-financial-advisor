@@ -14,7 +14,7 @@ function describe(signal) {
   const llm = signal.llm || {}
   const title = `${signal.symbol} ${signal.signal_type.replace(/_/g, ' ')} @ ${fmt(signal.price)}`
   const emaLabel = signal.ema_periods ? `EMA ${signal.ema_periods.join('/')}:` : 'EMA'
-  const values = `VWAP ${fmt(i.vwap)} · ${emaLabel} ${fmt(i.ema_fast)}/${fmt(i.ema_slow)} · RVOL ${fmt(i.rvol)}x`
+  const values = `VWAP ${fmt(i.vwap)} · ${emaLabel} ${fmt(i.ema_fast)}/${fmt(i.ema_slow)} · RVOL ${fmt(i.rvol)}x${typeof i.rsi === 'number' ? ` · RSI ${fmt(i.rsi)}` : ''}`
   const verdict =
     llm.action === 'take'
       ? `LLM ${Math.round((llm.confidence || 0) * 100)}%: ${llm.reason}`

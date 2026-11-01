@@ -10,6 +10,8 @@ EMA_CROSS = "EMA_CROSS"
 VWAP_CROSS = "VWAP_CROSS"
 VWAP_BAND_ABOVE = "VWAP_BAND_ABOVE"
 VWAP_BAND_BELOW = "VWAP_BAND_BELOW"
+RSI_ABOVE = "RSI_ABOVE"
+RSI_BELOW = "RSI_BELOW"
 
 VOLUME = "volume"
 TECHNICAL = "technical"
@@ -84,6 +86,30 @@ def vwap_band_below(
     return prev_close >= prev.vwap - n * prev.vwap_std and close < cur.vwap - n * cur.vwap_std
 
 
+def rsi_above(
+    prev_close: Optional[float],
+    prev: Optional[IndicatorValues],
+    close: float,
+    cur: IndicatorValues,
+    s: SignalSettings,
+) -> bool:
+    if prev is None or prev.rsi is None or cur.rsi is None:
+        return False
+    return crosses_above(prev.rsi, s.rsi_upper, cur.rsi, s.rsi_upper)
+
+
+def rsi_below(
+    prev_close: Optional[float],
+    prev: Optional[IndicatorValues],
+    close: float,
+    cur: IndicatorValues,
+    s: SignalSettings,
+) -> bool:
+    if prev is None or prev.rsi is None or cur.rsi is None:
+        return False
+    return prev.rsi >= s.rsi_lower and cur.rsi < s.rsi_lower
+
+
 @dataclass(frozen=True)
 class Trigger:
     signal_type: str
@@ -98,6 +124,8 @@ TRIGGERS = (
     Trigger(VWAP_CROSS, TECHNICAL, "trigger_vwap_enabled", vwap_cross),
     Trigger(VWAP_BAND_ABOVE, TECHNICAL, "trigger_vwap_band_enabled", vwap_band_above),
     Trigger(VWAP_BAND_BELOW, TECHNICAL, "trigger_vwap_band_enabled", vwap_band_below),
+    Trigger(RSI_ABOVE, TECHNICAL, "trigger_rsi_enabled", rsi_above),
+    Trigger(RSI_BELOW, TECHNICAL, "trigger_rsi_enabled", rsi_below),
 )
 
 

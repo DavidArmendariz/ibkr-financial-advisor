@@ -45,6 +45,36 @@ class Bollinger:
         return mean, mean + self.k * std, mean - self.k * std
 
 
+class RSI:
+    # Wilder's: seeded with the mean of the first `period` moves, then smoothed.
+    # Runs across sessions like the EMAs, so it matches charting platforms.
+    def __init__(self, period: int):
+        self.period = period
+        self.prev_close: Optional[float] = None
+        self.seed: list[float] = []
+        self.avg_gain: Optional[float] = None
+        self.avg_loss = 0.0
+
+    def update(self, close: float) -> Optional[float]:
+        if self.prev_close is None:
+            self.prev_close = close
+            return None
+        change, self.prev_close = close - self.prev_close, close
+        gain, loss = max(change, 0.0), max(-change, 0.0)
+        if self.avg_gain is None:
+            self.seed.append(change)
+            if len(self.seed) < self.period:
+                return None
+            self.avg_gain = sum(max(c, 0.0) for c in self.seed) / self.period
+            self.avg_loss = sum(max(-c, 0.0) for c in self.seed) / self.period
+        else:
+            self.avg_gain = (self.avg_gain * (self.period - 1) + gain) / self.period
+            self.avg_loss = (self.avg_loss * (self.period - 1) + loss) / self.period
+        if self.avg_loss == 0:
+            return 100.0 if self.avg_gain > 0 else 50.0
+        return 100 - 100 / (1 + self.avg_gain / self.avg_loss)
+
+
 class SessionVWAP:
     # `anchor_for(bar_time)` returns the session start for that bar, or None when
     # the bar falls outside the session (e.g. pre-market when it's excluded).
@@ -102,11 +132,13 @@ class IndicatorSet:
         bb_std: float,
         rvol_period: int,
         vwap_anchor_for: Callable[[datetime], Optional[datetime]],
+        rsi_period: int = 14,
     ):
         self.ema_fast = EMA(ema_fast)
         self.ema_slow = EMA(ema_slow)
         self.bollinger = Bollinger(bb_period, bb_std)
         self.rvol = RelativeVolume(rvol_period)
+        self.rsi = RSI(rsi_period)
         self.vwap = SessionVWAP(vwap_anchor_for)
 
     def update(self, bar: Bar) -> IndicatorValues:
@@ -120,4 +152,5 @@ class IndicatorSet:
             bb_upper=bands[1] if bands else None,
             bb_lower=bands[2] if bands else None,
             rvol=self.rvol.update(bar.volume),
+            rsi=self.rsi.update(bar.close),
         )

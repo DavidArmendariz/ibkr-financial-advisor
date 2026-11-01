@@ -13,6 +13,8 @@ const FILTERS: { label: string; type: string | null }[] = [
   { label: 'VWAP cross', type: 'VWAP_CROSS' },
   { label: 'VWAP band above', type: 'VWAP_BAND_ABOVE' },
   { label: 'VWAP band below', type: 'VWAP_BAND_BELOW' },
+  { label: 'RSI above', type: 'RSI_ABOVE' },
+  { label: 'RSI below', type: 'RSI_BELOW' },
 ]
 
 export function SignalHistoryPage() {

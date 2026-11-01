@@ -19,6 +19,7 @@ type BoolKey =
   | 'trigger_ema_enabled'
   | 'trigger_vwap_enabled'
   | 'trigger_vwap_band_enabled'
+  | 'trigger_rsi_enabled'
 
 interface Props {
   settings: SignalSettings
@@ -57,7 +58,8 @@ export function SignalSettingsForm({ settings, onSave }: Props) {
     !draft.trigger_volume_enabled &&
     !draft.trigger_ema_enabled &&
     !draft.trigger_vwap_enabled &&
-    !draft.trigger_vwap_band_enabled
+    !draft.trigger_vwap_band_enabled &&
+    !draft.trigger_rsi_enabled
 
   const set = <K extends keyof SignalSettings>(key: K, value: SignalSettings[K]) => {
     setDraft((d) => ({ ...d, [key]: value }))
@@ -164,6 +166,12 @@ export function SignalSettingsForm({ settings, onSave }: Props) {
             {check('trigger_vwap_band_enabled', 'VWAP band: the close crosses above or below VWAP by the distance below')}
             <div className="grid grid-cols-3 gap-3">
               <Field label="VWAP band distance" hint="std devs">{num('vwap_band_std', 0.1)}</Field>
+            </div>
+            {check('trigger_rsi_enabled', 'RSI: crosses above the upper level or below the lower level')}
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="RSI upper level">{num('rsi_upper')}</Field>
+              <Field label="RSI lower level">{num('rsi_lower')}</Field>
+              <Field label="RSI period" hint="bars">{num('rsi_period')}</Field>
             </div>
             {allOff && <p className="text-xs text-amber-400">All triggers are off, so no alerts will fire.</p>}
           </section>

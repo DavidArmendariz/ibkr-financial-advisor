@@ -223,8 +223,42 @@ export interface PostMortem extends AnalysisMeta {
 
 export type SignalAnalysis = PreMortem | PostMortem
 
+export interface SignalOutcome {
+  status: 'measured' | 'not_available'
+  move_5m: number | null
+  move_15m: number | null
+  move_30m: number | null
+  max_up: number | null
+  max_down: number | null
+}
+
 export type SignalHistoryRecord = Omit<SignalRecord, 'bars'> & {
   analyses?: { pre?: PreMortem; post?: PostMortem }
+  outcome?: SignalOutcome | null
+}
+
+export type OutcomeHorizon = '5m' | '15m' | '30m'
+
+export interface OutcomeHorizonStats {
+  count: number
+  average: number | null
+  median: number | null
+  up_share: number | null
+  small_sample: boolean
+}
+
+export interface OutcomeStats {
+  horizons: Record<OutcomeHorizon, OutcomeHorizonStats>
+  average_max_up: number | null
+  average_max_down: number | null
+}
+
+export interface SignalOutcomeResults {
+  triggers: (OutcomeStats & { signal_type: string })[]
+  baseline: OutcomeStats | null
+  baseline_days: number
+  pending: number
+  min_sample: number
 }
 
 export interface SignalHistoryPage {

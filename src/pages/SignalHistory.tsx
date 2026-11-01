@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { SignalAnalysisPanel } from '@/components/signals/SignalAnalysisPanel'
+import { SignalOutcomeResultsTable } from '@/components/signals/SignalOutcomeResults'
 import { SignalTable } from '@/components/signals/SignalTable'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -37,6 +38,8 @@ export function SignalHistoryPage() {
             </Button>
           ))}
         </div>
+
+        <SignalOutcomeResultsTable />
 
         {unreachable && <p className="text-sm text-red-400">Backend unreachable. This list may be out of date.</p>}
         {!loaded && !unreachable && <Placeholder text="Loading signals…" />}

@@ -4,23 +4,24 @@ import logging
 import math
 import uuid
 from collections import deque
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
 from ib_async import Stock
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlmodel import select
 
 from backend import database
 from backend.config import get_settings
-from backend.database import SignalAnalysis, SignalEvent
+from backend.database import OutcomeBaseline, SignalAnalysis, SignalEvent, SignalOutcome
 from backend.services import ibkr_service
-from backend.signals import analysis
+from backend.signals import analysis, outcomes
 from backend.signals.bars import BarAggregator
 from backend.signals.config import SignalSettings, get_signal_settings
 from backend.signals.llm_filter import FilterDecision, filter_snapshot, resolve_provider
 from backend.signals.models import Bar
 from backend.signals.pipeline import Candidate, SignalPipeline
+from backend.signals.rules import TRIGGERS
 from backend.signals.sessions import ET, SessionCalendar
 
 log = logging.getLogger(__name__)
@@ -29,6 +30,8 @@ HISTORY_SIZE = 50
 STREAM_RETRY_SECONDS = 30
 PERMISSION_RETRY_SECONDS = 300
 SESSION_MINUTES = 390
+OUTCOME_PASS_SECONDS = 300
+OUTCOME_START_DELAY_SECONDS = 20
 # Informational TWS codes (market data farm connected, etc.)
 INFO_CODES = {2100, 2104, 2106, 2107, 2108, 2119, 2158}
 DATA_ERROR_CODES = {162, 200, 354, 366, 420, 10089, 10090, 10167, 10168, 10197}
@@ -51,6 +54,7 @@ class SignalService:
         self._restart = False
         self._retry_at: Optional[datetime] = None
         self._task: Optional[asyncio.Task] = None
+        self._outcome_task: Optional[asyncio.Task] = None
         self._pending: set[asyncio.Task] = set()
         self._last_status: Optional[dict] = None
         self._analyzing: set[tuple[str, str]] = set()
@@ -61,10 +65,13 @@ class SignalService:
         ib.errorEvent += self._on_error
         ib.disconnectedEvent += self._on_disconnected
         self._task = asyncio.create_task(self._loop())
+        self._outcome_task = asyncio.create_task(self._outcome_loop())
 
     async def stop(self) -> None:
         if self._task:
             self._task.cancel()
+        if self._outcome_task:
+            self._outcome_task.cancel()
         for task in list(self._pending):
             task.cancel()
         self._teardown()
@@ -364,16 +371,164 @@ class SignalService:
             rows = (await session.exec(query.limit(limit + 1))).all()
         page = rows[:limit]
         last = page[-1] if len(rows) > limit else None
-        analyses = await self._analyses_for([row.id for row in page])
+        ids = [row.id for row in page]
+        analyses = await self._analyses_for(ids)
+        saved_outcomes = await self._outcomes_for(ids)
         return {
             # The table doesn't show the snapshot bars, and they'd bloat every poll.
             "signals": [
-                {**{k: v for k, v in self._record(row).items() if k != "bars"}, "analyses": analyses.get(row.id, {})}
+                {
+                    **{k: v for k, v in self._record(row).items() if k != "bars"},
+                    "analyses": analyses.get(row.id, {}),
+                    "outcome": saved_outcomes.get(row.id),
+                }
                 for row in page
             ],
             "next_cursor": f"{last.time.isoformat()}|{last.id}" if last else None,
         }
 
+
+    # ── Outcomes ────────────────────────────────────────────────────────────
+
+    async def _outcome_loop(self) -> None:
+        await asyncio.sleep(OUTCOME_START_DELAY_SECONDS)
+        while True:
+            try:
+                await self.measure_outcomes(datetime.now(timezone.utc))
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                log.warning("Couldn't measure signal outcomes: %s", type(e).__name__)
+            await asyncio.sleep(OUTCOME_PASS_SECONDS)
+
+    async def _outcomes_for(self, signal_ids: list[str]) -> dict[str, dict]:
+        if not signal_ids:
+            return {}
+        query = select(SignalOutcome).where(SignalOutcome.signal_id.in_(signal_ids))
+        async with database.AsyncSessionLocal() as session:
+            rows = (await session.exec(query)).all()
+        return {
+            row.signal_id: {"status": row.status, **{name: getattr(row, name) for name in outcomes.FIGURES}}
+            for row in rows
+        }
+
+    def _session_finished(self, day: date, calendar: SessionCalendar, now: datetime) -> bool:
+        if day != now.astimezone(ET).date():
+            return day < now.astimezone(ET).date()
+        hours = calendar.session(day)
+        return hours is None or now >= hours[1]
+
+    async def measure_outcomes(self, now: datetime) -> None:
+        if not ibkr_service.ibkr.isConnected():
+            return
+        calendar = self.pipeline.calendar if self.pipeline else SessionCalendar()
+        utc = lambda t: t if t.tzinfo else t.replace(tzinfo=timezone.utc)  # noqa: E731
+        day_of = lambda t: utc(t).astimezone(ET).date()  # noqa: E731
+        async with database.AsyncSessionLocal() as session:
+            pending = (
+                await session.exec(
+                    select(SignalEvent.id, SignalEvent.time, SignalEvent.symbol)
+                    .outerjoin(SignalOutcome, SignalOutcome.signal_id == SignalEvent.id)
+                    .where(SignalOutcome.signal_id.is_(None))
+                )
+            ).all()
+            measured = (
+                await session.exec(
+                    select(SignalEvent.time, SignalEvent.symbol)
+                    .join(SignalOutcome, SignalOutcome.signal_id == SignalEvent.id)
+                    .where(SignalOutcome.status == "measured")
+                )
+            ).all()
+            have_baseline = set((await session.exec(select(OutcomeBaseline.day))).all())
+
+        due = [row for row in pending if now - utc(row.time) >= outcomes.DUE_AFTER]
+        need_baseline = {
+            day_of(row.time): row.symbol
+            for row in measured
+            if day_of(row.time).isoformat() not in have_baseline and self._session_finished(day_of(row.time), calendar, now)
+        }
+        days = {day_of(row.time): row.symbol for row in due} | need_baseline
+        if not days:
+            return
+
+        day = max(days)
+        contract = Stock(days[day], "SMART", "USD")
+        end = min(datetime.combine(day, analysis.SESSION_END, ET), now)
+        bars = await ibkr_service.get_historical_bars(contract, "1 D", "1 min", "TRADES", True, end=end)
+        bars = [b for b in bars if datetime.fromtimestamp(b["time"], ET).date() == day]
+        finished = self._session_finished(day, calendar, now)
+        todays = [row for row in due if day_of(row.time) == day]
+
+        if not bars:
+            # A failed request also comes back empty, so a day only counts as gone
+            # once IBKR proves it's serving data right now.
+            if not finished or not await ibkr_service.get_historical_bars(contract, "1 D", "1 min", "TRADES", True):
+                return
+            async with database.AsyncSessionLocal() as session:
+                for row in todays:
+                    session.add(SignalOutcome(signal_id=row.id, status="not_available", measured_at=now))
+                if day in need_baseline:
+                    session.add(OutcomeBaseline(day=day.isoformat(), series="{}"))
+                await session.commit()
+            return
+
+        # liquidHours only reaches around today, so a past session's own bars show its
+        # real close, half-days included.
+        hours = calendar.session(day)
+        close_time = (
+            datetime.fromtimestamp(bars[-1]["time"] + 60, ET) if finished or hours is None else hours[1]
+        )
+        async with database.AsyncSessionLocal() as session:
+            for row in todays:
+                figures = outcomes.measure(bars, utc(row.time), close_time)
+                session.add(
+                    SignalOutcome(
+                        signal_id=row.id,
+                        status="measured" if figures else "not_available",
+                        measured_at=now,
+                        **(figures or {}),
+                    )
+                )
+            if finished and day.isoformat() not in have_baseline:
+                series = outcomes.day_baseline(bars, close_time, ET)
+                session.add(OutcomeBaseline(day=day.isoformat(), series=json.dumps(series)))
+            await session.commit()
+
+    async def outcome_results(self) -> dict:
+        async with database.AsyncSessionLocal() as session:
+            rows = (
+                await session.exec(
+                    select(SignalOutcome, SignalEvent.signal_type)
+                    .join(SignalEvent, SignalEvent.id == SignalOutcome.signal_id)
+                    .where(SignalOutcome.status == "measured")
+                )
+            ).all()
+            saved_days = (await session.exec(select(OutcomeBaseline.series))).all()
+            waiting = (
+                await session.exec(
+                    select(func.count())
+                    .select_from(SignalEvent)
+                    .outerjoin(SignalOutcome, SignalOutcome.signal_id == SignalEvent.id)
+                    .where(SignalOutcome.signal_id.is_(None))
+                )
+            ).one()
+
+        by_trigger: dict[str, list[dict]] = {}
+        for row, signal_type in rows:
+            by_trigger.setdefault(signal_type, []).append(row.model_dump())
+        days = [json.loads(text) for text in saved_days]
+        baseline = {name: [v for day in days for v in day.get(name, [])] for name in outcomes.FIGURES}
+        return {
+            "triggers": [
+                {"signal_type": t.signal_type, **outcomes.summarize(outcomes.collect(by_trigger[t.signal_type]))}
+                for t in TRIGGERS
+                if t.signal_type in by_trigger
+            ],
+            "baseline": outcomes.summarize(baseline) if any(baseline.values()) else None,
+            "baseline_days": sum(1 for day in days if day),
+            "pending": waiting,
+            "min_sample": outcomes.MIN_SAMPLE,
+        }
 
     # ── Analysis ────────────────────────────────────────────────────────────
 

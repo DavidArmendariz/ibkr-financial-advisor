@@ -17,6 +17,7 @@ import type {
   SignalAnalysis,
   SignalAnalysisKind,
   SignalHistoryPage,
+  SignalOutcomeResults,
   SignalSettings,
   SignalState,
 } from '@/types'
@@ -137,6 +138,8 @@ export const getSignalHistory = (type: string | null, before?: string) =>
     .then((r) => r.data)
 
 // Longer timeout: the backend allows the AI provider up to 60 seconds.
+export const getSignalOutcomes = () => http.get<SignalOutcomeResults>('/api/signals/outcomes').then((r) => r.data)
+
 export const runSignalAnalysis = (signalId: string, kind: SignalAnalysisKind) =>
   http
     .post<SignalAnalysis>(`/api/signals/${encodeURIComponent(signalId)}/analysis/${kind}`, undefined, { timeout: 90_000 })

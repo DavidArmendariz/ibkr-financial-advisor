@@ -82,6 +82,20 @@ function PostResult({ result }: { result: PostMortem }) {
   )
 }
 
+function OutcomeFigures({ outcome }: { outcome: SignalHistoryRecord['outcome'] }) {
+  if (!outcome) return <p className="text-muted-foreground">Outcome pending</p>
+  if (outcome.status === 'not_available') return <p className="text-muted-foreground">Outcome not available</p>
+  return (
+    <dl className="grid grid-cols-3 gap-2 sm:grid-cols-5" aria-label="Signal outcome">
+      <Figure label="After 5 min" value={outcome.move_5m} />
+      <Figure label="After 15 min" value={outcome.move_15m} />
+      <Figure label="After 30 min" value={outcome.move_30m} />
+      <Figure label="Largest up" value={outcome.max_up} />
+      <Figure label="Largest down" value={outcome.max_down} />
+    </dl>
+  )
+}
+
 export function SignalAnalysisPanel({ signal }: { signal: SignalHistoryRecord }) {
   const [saved, setSaved] = useState(signal.analyses ?? {})
   const [running, setRunning] = useState<SignalAnalysisKind[]>([])
@@ -103,6 +117,7 @@ export function SignalAnalysisPanel({ signal }: { signal: SignalHistoryRecord })
 
   return (
     <div className="flex flex-col gap-2 text-xs">
+      <OutcomeFigures outcome={signal.outcome} />
       <div className="no-drag flex flex-wrap items-center gap-2">
         {(['pre', 'post'] as const).map((kind) => (
           <Button key={kind} variant="outline" size="sm" className="h-7 gap-1.5 text-xs" disabled={running.includes(kind)} onClick={() => run(kind)}>

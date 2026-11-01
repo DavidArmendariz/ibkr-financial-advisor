@@ -43,6 +43,23 @@ class SignalAnalysis(SQLModel, table=True):
     result: str  # JSON
 
 
+class SignalOutcome(SQLModel, table=True):
+    signal_id: str = Field(primary_key=True)
+    status: str = Field(max_length=20)  # "measured" | "not_available"
+    measured_at: datetime
+    move_5m: Optional[float] = None
+    move_15m: Optional[float] = None
+    move_30m: Optional[float] = None
+    max_up: Optional[float] = None
+    max_down: Optional[float] = None
+
+
+class OutcomeBaseline(SQLModel, table=True):
+    day: str = Field(primary_key=True, max_length=10)  # YYYY-MM-DD in ET
+    # JSON lists by figure: medians can't be combined from daily totals.
+    series: str
+
+
 class CalendarEvent(SQLModel, table=True):
     id: str = Field(primary_key=True)
     source: str = Field(index=True, max_length=20)

@@ -33,6 +33,11 @@ async def get_history(
         raise HTTPException(status_code=422, detail="Invalid cursor")
 
 
+@router.get("/outcomes")
+async def get_outcomes():
+    return await signal_service.outcome_results()
+
+
 @router.post("/{signal_id}/analysis/{kind}")
 async def run_analysis(signal_id: str, kind: str):
     if kind not in KINDS:

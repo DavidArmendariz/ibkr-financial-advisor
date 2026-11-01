@@ -24,10 +24,12 @@ export function useSignalHistory(type: string | null) {
       try {
         const page = await api.getSignalHistory(type)
         if (!alive) return
-        // Older pages stay loaded: a poll only adds rows that weren't there yet.
+        // Older pages stay loaded: a poll adds new rows and refreshes the ones it returned,
+        // so an outcome measured while the view is open shows up.
         setSignals((prev) => {
+          const fresh = new Map(page.signals.map((s) => [s.id, s]))
           const known = new Set(prev.map((s) => s.id))
-          return [...page.signals.filter((s) => !known.has(s.id)), ...prev]
+          return [...page.signals.filter((s) => !known.has(s.id)), ...prev.map((s) => fresh.get(s.id) ?? s)]
         })
         if (first) setNextCursor(page.next_cursor)
         first = false

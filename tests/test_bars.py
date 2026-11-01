@@ -62,3 +62,25 @@ def test_forming_bar_tracks_the_open_bucket():
     assert (forming.time, forming.open, forming.high, forming.low, forming.close, forming.volume) == (
         t(30), 10.0, 10.4, 9.9, 10.3, 150
     )
+
+
+async def test_historical_bars_default_to_the_latest_data_and_can_end_earlier(monkeypatch):
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+
+    from ib_async import Stock
+
+    from backend.services import ibkr_service
+
+    seen = []
+
+    async def fake_history(contract, **kwargs):
+        seen.append(kwargs["endDateTime"])
+        return []
+
+    fake = SimpleNamespace(isConnected=lambda: True, reqHistoricalDataAsync=fake_history)
+    monkeypatch.setattr(ibkr_service, "ibkr", fake)
+    end = datetime(2026, 10, 28, 20, tzinfo=timezone.utc)
+    await ibkr_service.get_historical_bars(Stock("SOXL", "SMART", "USD"))
+    await ibkr_service.get_historical_bars(Stock("SOXL", "SMART", "USD"), end=end)
+    assert seen == ["", end]

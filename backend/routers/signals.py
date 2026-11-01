@@ -4,6 +4,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
+from backend.signals.analysis import KINDS, AnalysisError
 from backend.signals.config import SignalSettings, save_signal_settings
 from backend.signals.rules import TRIGGERS
 from backend.signals.service import signal_service
@@ -30,6 +31,16 @@ async def get_history(
         return await signal_service.history_page(limit, type, before)
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid cursor")
+
+
+@router.post("/{signal_id}/analysis/{kind}")
+async def run_analysis(signal_id: str, kind: str):
+    if kind not in KINDS:
+        raise HTTPException(status_code=422, detail=f"Unknown analysis: {kind}")
+    try:
+        return await signal_service.analyze(signal_id, kind)
+    except AnalysisError as e:
+        raise HTTPException(status_code=e.status, detail=e.message)
 
 
 @router.put("/settings")

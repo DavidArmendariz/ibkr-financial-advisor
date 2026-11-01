@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
+import { SignalAnalysisPanel } from '@/components/signals/SignalAnalysisPanel'
 import { SignalTable } from '@/components/signals/SignalTable'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -38,7 +39,7 @@ export function SignalHistoryPage() {
         {unreachable && <p className="text-sm text-red-400">Backend unreachable. This list may be out of date.</p>}
         {!loaded && !unreachable && <Placeholder text="Loading signals…" />}
         {loaded && signals.length === 0 && <Placeholder text={empty} />}
-        {signals.length > 0 && <SignalTable signals={signals} />}
+        {signals.length > 0 && <SignalTable signals={signals} renderDetails={(s) => <SignalAnalysisPanel signal={s} />} />}
 
         {hasOlder && (
           <Button variant="outline" size="sm" onClick={loadOlder} disabled={loadingOlder} className="no-drag gap-2 self-center">

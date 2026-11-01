@@ -43,6 +43,7 @@ Built with Electron + React on the frontend and a Python FastAPI backend. The ap
 **Signal History**
 - Every saved signal, newest first, including those the LLM filter skipped, with its trigger, category, price, indicators, LLM decision and whether it notified you
 - Filter by trigger, and load older signals 100 at a time. New signals appear at the top within 15 seconds
+- **Pre-mortem** and **Post-mortem** buttons on each signal run an on-demand analysis with the AI provider in Settings. The pre-mortem receives only what was known when the signal fired; the post-mortem adds the rest of the session and outcome figures the app computes, and says it's written with hindsight. Results are saved. Each click sends that signal's market data to your provider, never positions, orders or account data, and it needs IBKR connected for the session's bars
 
 **Macro**
 - **Market Sentiment** card: the app's own 0–100 fear and greed estimate, not CNN's Fear & Greed Index, which has no official API. It averages four components, each ranked against its own past 252 trading days: S&P 500 vs its 125-day average, VIX vs its 50-day average (inverted), the 20-day return of SPY minus TLT, and HYG/LQD vs its 50-day average. RSP/SPY breadth is shown for context and isn't in the score. Uses daily closes, so it changes once a day, and it's context only: alerts don't use it. **How it's calculated** on the card explains the method, bands and each component
@@ -397,6 +398,7 @@ ibkr-financial-advisor/
 | `PUT` | `/api/settings/openai-compatible` | Verify and save `{"base_url","model","api_key"}` (omit `api_key` to keep the saved one, `""` to clear it) |
 | `GET` | `/api/signals/state` | Signal status, live indicator values, last 50 signals, and settings |
 | `GET` | `/api/signals/history` | Saved signals, newest first (`?type=EMA_CROSS&before=<next_cursor>&limit=100`), with `next_cursor` for the next page |
+| `POST` | `/api/signals/:id/analysis/:kind` | Run a saved `pre` or `post` analysis for a signal |
 | `PUT` | `/api/signals/settings` | Update any subset of signal settings; applied live |
 | `WS` | `/api/signals/ws` | Signal event stream (see below) |
 | `GET` | `/api/orders/open` | `available` (`false` if TWS refused or didn't answer) and `orders`, one entry per open order; 503 when not connected |

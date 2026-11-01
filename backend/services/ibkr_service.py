@@ -248,6 +248,7 @@ async def get_historical_bars(
     bar_size: str = "5 mins",
     what_to_show: str = "TRADES",
     use_rth: bool = True,
+    end: Optional[datetime] = None,
 ) -> list[dict]:
     if not ibkr.isConnected():
         return []
@@ -260,7 +261,7 @@ async def get_historical_bars(
 
     bars = await ibkr.reqHistoricalDataAsync(
         contract,
-        endDateTime="",
+        endDateTime=end or "",
         durationStr=duration,
         barSizeSetting=bar_size,
         whatToShow=what_to_show,

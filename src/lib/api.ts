@@ -12,6 +12,8 @@ import type {
   OHLCBar,
   OpenOrdersState,
   Position,
+  SignalAnalysis,
+  SignalAnalysisKind,
   SignalHistoryPage,
   SignalSettings,
   SignalState,
@@ -115,6 +117,12 @@ export const getSignalState = () => http.get<SignalState>('/api/signals/state').
 export const getSignalHistory = (type: string | null, before?: string) =>
   http
     .get<SignalHistoryPage>('/api/signals/history', { params: { type: type ?? undefined, before } })
+    .then((r) => r.data)
+
+// Longer timeout: the backend allows the AI provider up to 60 seconds.
+export const runSignalAnalysis = (signalId: string, kind: SignalAnalysisKind) =>
+  http
+    .post<SignalAnalysis>(`/api/signals/${encodeURIComponent(signalId)}/analysis/${kind}`, undefined, { timeout: 90_000 })
     .then((r) => r.data)
 
 export const updateSignalSettings = (values: Partial<SignalSettings>) =>

@@ -13,14 +13,15 @@ from sqlmodel import select
 
 from backend import database
 from backend.config import get_settings
-from backend.database import SignalEvent
+from backend.database import SignalAnalysis, SignalEvent
 from backend.services import ibkr_service
+from backend.signals import analysis
 from backend.signals.bars import BarAggregator
 from backend.signals.config import SignalSettings, get_signal_settings
 from backend.signals.llm_filter import FilterDecision, filter_snapshot, resolve_provider
 from backend.signals.models import Bar
 from backend.signals.pipeline import Candidate, SignalPipeline
-from backend.signals.sessions import SessionCalendar
+from backend.signals.sessions import ET, SessionCalendar
 
 log = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ class SignalService:
         self._task: Optional[asyncio.Task] = None
         self._pending: set[asyncio.Task] = set()
         self._last_status: Optional[dict] = None
+        self._analyzing: set[tuple[str, str]] = set()
 
     async def start(self) -> None:
         await self._load_history()
@@ -361,11 +363,94 @@ class SignalService:
             rows = (await session.exec(query.limit(limit + 1))).all()
         page = rows[:limit]
         last = page[-1] if len(rows) > limit else None
+        analyses = await self._analyses_for([row.id for row in page])
         return {
             # The table doesn't show the snapshot bars, and they'd bloat every poll.
-            "signals": [{k: v for k, v in self._record(row).items() if k != "bars"} for row in page],
+            "signals": [
+                {**{k: v for k, v in self._record(row).items() if k != "bars"}, "analyses": analyses.get(row.id, {})}
+                for row in page
+            ],
             "next_cursor": f"{last.time.isoformat()}|{last.id}" if last else None,
         }
+
+
+    # ── Analysis ────────────────────────────────────────────────────────────
+
+    async def _analyses_for(self, signal_ids: list[str]) -> dict[str, dict]:
+        if not signal_ids:
+            return {}
+        query = select(SignalAnalysis).where(SignalAnalysis.signal_id.in_(signal_ids))
+        async with database.AsyncSessionLocal() as session:
+            rows = (await session.exec(query)).all()
+        out: dict[str, dict] = {}
+        for row in rows:
+            out.setdefault(row.signal_id, {})[row.kind] = self._analysis_record(row)
+        return out
+
+    @staticmethod
+    def _analysis_record(row: SignalAnalysis) -> dict:
+        created = row.created_at if row.created_at.tzinfo else row.created_at.replace(tzinfo=timezone.utc)
+        return {
+            "kind": row.kind,
+            "created_at": created.isoformat(),
+            "provider": row.provider,
+            "model": row.model,
+            **json.loads(row.result),
+        }
+
+    async def analyze(self, signal_id: str, kind: str) -> dict:
+        key = (signal_id, kind)
+        if key in self._analyzing:
+            raise analysis.AnalysisError(409, "This analysis is already running")
+        self._analyzing.add(key)
+        try:
+            return await self._analyze(signal_id, kind)
+        finally:
+            self._analyzing.discard(key)
+
+    async def _analyze(self, signal_id: str, kind: str) -> dict:
+        async with database.AsyncSessionLocal() as session:
+            row = await session.get(SignalEvent, signal_id)
+        if row is None:
+            raise analysis.AnalysisError(404, "Signal not found")
+        signal = self._record(row)
+        signal_time = datetime.fromisoformat(signal["time"])
+        calendar = self.pipeline.calendar if self.pipeline else SessionCalendar()
+        hours = calendar.session(signal_time.astimezone(ET).date())
+        close_time = hours[1] if hours else signal_time
+        now = datetime.now(timezone.utc)
+        if kind == "post":
+            analysis.check_post_mortem_ready(signal_time, close_time, now)
+
+        provider = resolve_provider(get_settings(), self.settings)
+        if provider is None:
+            raise analysis.AnalysisError(400, "No AI provider is configured. Add one in Settings.")
+        if not ibkr_service.ibkr.isConnected():
+            raise analysis.AnalysisError(503, "Not connected to IBKR")
+
+        day = signal_time.astimezone(ET).date()
+        end = min(datetime.combine(day, analysis.SESSION_END, ET), now)
+        bars = await ibkr_service.get_historical_bars(
+            Stock(signal["symbol"], "SMART", "USD"), "1 D", "1 min", "TRADES", False, end=end
+        )
+        bars = [b for b in bars if datetime.fromtimestamp(b["time"], ET).date() == day]
+        if not bars:
+            raise analysis.AnalysisError(502, f"IBKR returned no bars for {day}")
+
+        result = await analysis.run(kind, signal, bars, close_time, provider)
+        async with database.AsyncSessionLocal() as session:
+            saved = await session.merge(
+                SignalAnalysis(
+                    signal_id=signal_id,
+                    kind=kind,
+                    created_at=now,
+                    provider=provider.name,
+                    model=provider.model,
+                    result=json.dumps(result),
+                )
+            )
+            await session.commit()
+            return self._analysis_record(saved)
 
 
 signal_service = SignalService()

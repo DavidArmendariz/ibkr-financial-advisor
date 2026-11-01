@@ -52,7 +52,9 @@ class LLMProvider(Protocol):
     name: str
     model: str
 
-    async def complete(self, system: str, user: str, timeout: float) -> str: ...
+    async def complete(
+        self, system: str, user: str, timeout: float, max_tokens: int = MAX_OUTPUT_TOKENS, schema: dict = DECISION_SCHEMA
+    ) -> str: ...
 
 
 class AnthropicProvider:
@@ -62,15 +64,17 @@ class AnthropicProvider:
         self.api_key = api_key
         self.model = model
 
-    async def complete(self, system: str, user: str, timeout: float) -> str:
+    async def complete(
+        self, system: str, user: str, timeout: float, max_tokens: int = MAX_OUTPUT_TOKENS, schema: dict = DECISION_SCHEMA
+    ) -> str:
         client = anthropic.AsyncAnthropic(api_key=self.api_key, timeout=timeout, max_retries=0)
         try:
             response = await client.messages.create(
                 model=self.model,
-                max_tokens=MAX_OUTPUT_TOKENS,
+                max_tokens=max_tokens,
                 system=system,
                 messages=[{"role": "user", "content": user}],
-                output_config={"format": {"type": "json_schema", "schema": DECISION_SCHEMA}},
+                output_config={"format": {"type": "json_schema", "schema": schema}},
             )
         finally:
             await client.close()
@@ -84,7 +88,9 @@ class OpenAICompatibleProvider:
         self.api_key = api_key
         self.model = model
 
-    async def complete(self, system: str, user: str, timeout: float) -> str:
+    async def complete(
+        self, system: str, user: str, timeout: float, max_tokens: int = MAX_OUTPUT_TOKENS, schema: dict = DECISION_SCHEMA
+    ) -> str:
         client = openai.AsyncOpenAI(
             base_url=self.base_url, api_key=self.api_key or "not-needed", timeout=timeout, max_retries=0
         )
@@ -95,7 +101,7 @@ class OpenAICompatibleProvider:
             response = await client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-                **{limit: MAX_OUTPUT_TOKENS},
+                **{limit: max_tokens},
             )
         finally:
             await client.close()
@@ -128,11 +134,15 @@ def resolve_provider(app: Settings, signals: SignalSettings) -> Optional[LLMProv
     return OpenAICompatibleProvider(kind, app.openai_compat_base_url, app.openai_compat_api_key, model)
 
 
-def parse_decision(text: str) -> tuple[str, float, str]:
+def load_json_reply(text: str) -> object:
     raw = text.strip()
     if raw.startswith("```"):
         raw = raw.strip("`").removeprefix("json").strip()
-    data = json.loads(raw)
+    return json.loads(raw)
+
+
+def parse_decision(text: str) -> tuple[str, float, str]:
+    data = load_json_reply(text)
     if not isinstance(data, dict) or set(data) != {"action", "confidence", "reason"}:
         raise ValueError("unexpected keys")
     action, confidence, reason = data["action"], data["confidence"], data["reason"]

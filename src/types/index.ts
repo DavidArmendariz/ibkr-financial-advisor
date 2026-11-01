@@ -167,7 +167,45 @@ export interface SignalRecord {
   notified: boolean
 }
 
-export type SignalHistoryRecord = Omit<SignalRecord, 'bars'>
+export type SignalAnalysisKind = 'pre' | 'post'
+
+export interface AnalysisMeta {
+  kind: SignalAnalysisKind
+  created_at: string
+  provider: string
+  model: string
+}
+
+export interface PreMortem extends AnalysisMeta {
+  kind: 'pre'
+  action: 'take' | 'skip'
+  confidence: number
+  case_for: string
+  risks: string
+  invalidation: string
+}
+
+export interface SignalOutcomes {
+  return_pct: { '15m': number | null; '30m': number | null; '60m': number | null; close: number | null }
+  largest_gain_pct: number | null
+  largest_loss_pct: number | null
+  returned_to_start: boolean
+}
+
+export interface PostMortem extends AnalysisMeta {
+  kind: 'post'
+  verdict: 'good' | 'bad' | 'mixed'
+  explanation: string
+  directions: string[]
+  outcomes: SignalOutcomes
+  hindsight: boolean
+}
+
+export type SignalAnalysis = PreMortem | PostMortem
+
+export type SignalHistoryRecord = Omit<SignalRecord, 'bars'> & {
+  analyses?: { pre?: PreMortem; post?: PostMortem }
+}
 
 export interface SignalHistoryPage {
   signals: SignalHistoryRecord[]

@@ -1,3 +1,4 @@
+import { Fragment, type ReactNode } from 'react'
 import { Bell, BellOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fmtPrice, fmtRatio, fmtTimeET } from './format'
@@ -18,7 +19,12 @@ function Decision({ llm }: { llm: LLMDecision }) {
   )
 }
 
-export function SignalTable({ signals }: { signals: SignalHistoryRecord[] }) {
+interface Props<T extends SignalHistoryRecord> {
+  signals: T[]
+  renderDetails?: (signal: T) => ReactNode
+}
+
+export function SignalTable<T extends SignalHistoryRecord>({ signals, renderDetails }: Props<T>) {
   if (signals.length === 0) {
     return (
       <div className="rounded-lg border border-border py-10 text-center text-sm text-muted-foreground">
@@ -45,7 +51,8 @@ export function SignalTable({ signals }: { signals: SignalHistoryRecord[] }) {
         </thead>
         <tbody>
           {signals.map((s) => (
-            <tr key={s.id} className="border-b border-border last:border-0">
+            <Fragment key={s.id}>
+            <tr className={cn(!renderDetails && 'border-b border-border last:border-0')}>
               <td className="whitespace-nowrap px-3 py-2 tabular-nums text-muted-foreground">{fmtTimeET(s.time, true)}</td>
               <td className="whitespace-nowrap px-3 py-2">
                 <span className="font-medium">{s.signal_type.replace(/_/g, ' ')}</span>
@@ -71,6 +78,14 @@ export function SignalTable({ signals }: { signals: SignalHistoryRecord[] }) {
                 )}
               </td>
             </tr>
+            {renderDetails && (
+              <tr className="border-b border-border last:border-0">
+                <td colSpan={9} className="px-3 pb-2">
+                  {renderDetails(s)}
+                </td>
+              </tr>
+            )}
+            </Fragment>
           ))}
         </tbody>
       </table>

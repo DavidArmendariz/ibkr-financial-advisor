@@ -38,6 +38,7 @@ Built with Electron + React on the frontend and a Python FastAPI backend. The ap
 - No signals in the first and last 10 minutes of the session (using IBKR's actual trading hours, so half-days are handled), with a 5-minute cooldown per trigger; all configurable
 - Optional **LLM filter**: each signal's snapshot (price, indicators, last 20 bars) goes to the AI provider configured in **Settings**, which answers take/skip with a confidence and a short reason. Only signals it takes above a confidence threshold are notified. On a timeout (5 s), invalid reply, or no configured provider, the signal passes through marked `unfiltered`
 - Native desktop notification for each alert, e.g. `SOXL EMA CROSS @ 167.39`, with its category, the key indicator values and the LLM's reason. Clicking it opens the Signals view. Alerts arrive even while the window is closed, as long as the app is running
+- An RSI pane sits under the Signals chart, with your upper and lower levels as dashed lines. It stays lined up with the price chart when you pan, zoom or hover
 - The **Signals** view shows the IBKR connection, market data and LLM filter status, live indicator values, the last 50 signals with their LLM decisions, and all settings (applied live, no restart)
 - Alerts only: no orders are placed
 

@@ -5,7 +5,10 @@ import {
   LineStyle,
   createChart,
   type IChartApi,
+  type IPriceLine,
   type ISeriesApi,
+  type LogicalRange,
+  type MouseEventParams,
   type SeriesMarker,
   type Time,
   type UTCTimestamp,
@@ -23,6 +26,14 @@ const COLORS = {
   bands: 'rgba(255,255,255,0.35)',
 }
 const SESSION_MINUTES = 390
+const RSI_PANE_HEIGHT = 120
+// Equal scale widths keep the two plot areas, and so the bars, lined up.
+const PRICE_SCALE_WIDTH = 64
+const CHART_THEME = {
+  layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: 'rgba(255,255,255,0.5)' },
+  grid: { vertLines: { color: 'rgba(255,255,255,0.04)' }, horzLines: { color: 'rgba(255,255,255,0.04)' } },
+  crosshair: { mode: CrosshairMode.Normal },
+}
 
 const MARKER_TEXT: Record<string, string> = {
   VOLUME_SPIKE: 'VOL',
@@ -65,8 +76,21 @@ function toChartTime(iso: string): UTCTimestamp {
 
 type LineKey = 'vwap' | 'ema_fast' | 'ema_slow' | 'bb_upper' | 'bb_mid' | 'bb_lower'
 
-function line(points: SignalChartPoint[], key: LineKey) {
-  return points.map((p) => (p[key] === null ? { time: toChartTime(p.time) } : { time: toChartTime(p.time), value: p[key] as number }))
+function sameRange(a: LogicalRange | null, b: LogicalRange | null) {
+  return !!a && !!b && Math.abs(a.from - b.from) < 0.01 && Math.abs(a.to - b.to) < 0.01
+}
+
+// Logical ranges are bar indexes, so a range from one chart only fits the other
+// because both hold the same bars.
+function syncRange(from: IChartApi, to: IChartApi) {
+  const onChange = (range: LogicalRange | null) => {
+    if (range && !sameRange(range, to.timeScale().getVisibleLogicalRange())) to.timeScale().setVisibleLogicalRange(range)
+  }
+  from.timeScale().subscribeVisibleLogicalRangeChange(onChange)
+}
+
+function line(points: SignalChartPoint[], key: LineKey | 'rsi') {
+  return points.map((p) => (p[key] == null ? { time: toChartTime(p.time) } : { time: toChartTime(p.time), value: p[key] as number }))
 }
 
 interface Props {
@@ -79,11 +103,15 @@ interface Props {
 
 export function SignalChart({ chart, forming, signals, settings, symbol }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const rsiContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
+  const rsiChartRef = useRef<IChartApi | null>(null)
+  const rsiLevels = useRef<IPriceLine[]>([])
   const series = useRef<{
     candles: ISeriesApi<'Candlestick'>
     volume: ISeriesApi<'Histogram'>
     lines: Record<LineKey, ISeriesApi<'Line'>>
+    rsi: ISeriesApi<'Line'>
   } | null>(null)
   const framed = useRef(false)
   const [hovered, setHovered] = useState<SignalChartPoint | null>(null)
@@ -92,13 +120,12 @@ export function SignalChart({ chart, forming, signals, settings, symbol }: Props
   const byTime = useMemo(() => new Map(bars.map((b) => [toChartTime(b.time), b])), [bars])
 
   useEffect(() => {
-    if (!containerRef.current) return
+    if (!containerRef.current || !rsiContainerRef.current) return
     const c = createChart(containerRef.current, {
-      layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: 'rgba(255,255,255,0.5)' },
-      grid: { vertLines: { color: 'rgba(255,255,255,0.04)' }, horzLines: { color: 'rgba(255,255,255,0.04)' } },
-      crosshair: { mode: CrosshairMode.Normal },
-      timeScale: { borderColor: 'rgba(255,255,255,0.06)', timeVisible: true, secondsVisible: false },
-      rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)', scaleMargins: { top: 0.08, bottom: 0.22 } },
+      ...CHART_THEME,
+      // The shared time axis sits under the RSI pane, at the bottom of the card.
+      timeScale: { visible: false },
+      rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)', minimumWidth: PRICE_SCALE_WIDTH, scaleMargins: { top: 0.08, bottom: 0.22 } },
       width: containerRef.current.clientWidth,
       height: 380,
     })
@@ -120,17 +147,43 @@ export function SignalChart({ chart, forming, signals, settings, symbol }: Props
       wickUpColor: UP,
       wickDownColor: DOWN,
     })
-    series.current = { candles, volume, lines }
+    const rsiChart = createChart(rsiContainerRef.current, {
+      ...CHART_THEME,
+      // The price chart above carries the TradingView attribution for the card.
+      layout: { ...CHART_THEME.layout, attributionLogo: false },
+      timeScale: { borderColor: 'rgba(255,255,255,0.06)', timeVisible: true, secondsVisible: false },
+      rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)', minimumWidth: PRICE_SCALE_WIDTH, scaleMargins: { top: 0.06, bottom: 0.06 } },
+      width: rsiContainerRef.current.clientWidth,
+      height: RSI_PANE_HEIGHT,
+    })
+    const rsi = rsiChart.addLineSeries({
+      color: COLORS.vwap,
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      priceFormat: { type: 'price', precision: 0, minMove: 1 },
+      // Fixed, so the levels stay put at any zoom.
+      autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
+    })
+    syncRange(c, rsiChart)
+    syncRange(rsiChart, c)
+    series.current = { candles, volume, lines, rsi }
     chartRef.current = c
+    rsiChartRef.current = rsiChart
 
     const ro = new ResizeObserver((entries) => {
-      if (entries[0]) c.applyOptions({ width: entries[0].contentRect.width })
+      if (!entries[0]) return
+      c.applyOptions({ width: entries[0].contentRect.width })
+      rsiChart.applyOptions({ width: entries[0].contentRect.width })
     })
     ro.observe(containerRef.current)
     return () => {
       ro.disconnect()
       c.remove()
+      rsiChart.remove()
       chartRef.current = null
+      rsiChartRef.current = null
+      rsiLevels.current = []
       series.current = null
     }
   }, [])
@@ -140,11 +193,55 @@ export function SignalChart({ chart, forming, signals, settings, symbol }: Props
   byTimeRef.current = byTime
   useEffect(() => {
     const c = chartRef.current
-    if (!c) return
-    const onMove = (param: { time?: Time }) => setHovered(param.time ? byTimeRef.current.get(param.time as UTCTimestamp) ?? null : null)
-    c.subscribeCrosshairMove(onMove)
-    return () => c.unsubscribeCrosshairMove(onMove)
+    const rsiChart = rsiChartRef.current
+    const s = series.current
+    if (!c || !rsiChart || !s) return
+    // Moving one crosshair from the other chart fires its own move event.
+    let mirroring = false
+    const mirror = (apply: () => void) => {
+      mirroring = true
+      apply()
+      mirroring = false
+    }
+    const onMove = (param: MouseEventParams<Time>, showOther: (time: Time, bar: SignalChartPoint) => void, clearOther: () => void) => {
+      if (mirroring) return
+      const bar = param.time ? byTimeRef.current.get(param.time as UTCTimestamp) ?? null : null
+      setHovered(bar)
+      mirror(() => (param.time && bar ? showOther(param.time, bar) : clearOther()))
+    }
+    const onPriceMove = (param: MouseEventParams<Time>) =>
+      onMove(param, (time, bar) => rsiChart.setCrosshairPosition(bar.rsi ?? 50, time, s.rsi), () => rsiChart.clearCrosshairPosition())
+    const onRsiMove = (param: MouseEventParams<Time>) =>
+      onMove(param, (time, bar) => c.setCrosshairPosition(bar.close, time, s.candles), () => c.clearCrosshairPosition())
+    c.subscribeCrosshairMove(onPriceMove)
+    rsiChart.subscribeCrosshairMove(onRsiMove)
+    return () => {
+      c.unsubscribeCrosshairMove(onPriceMove)
+      rsiChart.unsubscribeCrosshairMove(onRsiMove)
+    }
   }, [])
+
+  const rsiUpper = settings?.rsi_upper
+  const rsiLower = settings?.rsi_lower
+  useEffect(() => {
+    const s = series.current
+    if (!s) return
+    for (const level of rsiLevels.current) s.rsi.removePriceLine(level)
+    rsiLevels.current = [rsiUpper, rsiLower]
+      .filter((price): price is number => price !== undefined)
+      .map((price) =>
+        s.rsi.createPriceLine({
+          price,
+          color: 'rgba(255,255,255,0.45)',
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          axisLabelColor: '#2a2a2e',
+          axisLabelTextColor: 'rgba(255,255,255,0.8)',
+          title: '',
+        }),
+      )
+  }, [rsiUpper, rsiLower])
 
   useEffect(() => {
     const s = series.current
@@ -158,6 +255,7 @@ export function SignalChart({ chart, forming, signals, settings, symbol }: Props
       })),
     )
     for (const key of Object.keys(s.lines) as LineKey[]) s.lines[key].setData(line(bars, key))
+    s.rsi.setData(line(bars, 'rsi'))
 
     // Frame the latest session once; afterwards keep whatever the user has panned to.
     if (!framed.current && bars.length > 0 && chartRef.current) {
@@ -174,6 +272,8 @@ export function SignalChart({ chart, forming, signals, settings, symbol }: Props
     const time = toChartTime(forming.time)
     s.candles.update({ time, open: forming.open, high: forming.high, low: forming.low, close: forming.close })
     s.volume.update({ time, value: forming.volume, color: forming.close >= forming.open ? 'rgba(52,211,153,0.35)' : 'rgba(248,113,113,0.35)' })
+    // RSI waits for the bar to complete, but the charts must keep the same bars.
+    s.rsi.update({ time })
   }, [forming, bars])
 
   useEffect(() => {
@@ -230,6 +330,12 @@ export function SignalChart({ chart, forming, signals, settings, symbol }: Props
           </div>
         )}
         <div ref={containerRef} className="w-full" />
+        <div className="mb-1 mt-2 flex items-center gap-1.5 text-xs">
+          <span className="h-0.5 w-4 rounded" style={{ background: COLORS.vwap }} />
+          <span className="text-muted-foreground">RSI {settings?.rsi_period ?? 14}</span>
+          <span className="tabular-nums text-foreground">{fmtPrice(shown?.rsi)}</span>
+        </div>
+        <div ref={rsiContainerRef} className="w-full" />
       </CardContent>
     </Card>
   )

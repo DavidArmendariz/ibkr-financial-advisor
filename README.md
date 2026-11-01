@@ -45,6 +45,7 @@ Built with Electron + React on the frontend and a Python FastAPI backend. The ap
 - Filter by trigger, and load older signals 100 at a time. New signals appear at the top within 15 seconds
 
 **Macro**
+- **Market Sentiment** card: the app's own 0–100 fear and greed estimate, not CNN's Fear & Greed Index, which has no official API. It averages four components, each ranked against its own past 252 trading days: S&P 500 vs its 125-day average, VIX vs its 50-day average (inverted), the 20-day return of SPY minus TLT, and HYG/LQD vs its 50-day average. RSP/SPY breadth is shown for context and isn't in the score. Uses daily closes, so it changes once a day, and it's context only: alerts don't use it. **How it's calculated** on the card explains the method, bands and each component
 - Crude oil (NYMEX WTI front-month future), gold (COMEX GC), S&P 500 futures (CME ES), Nasdaq 100 futures (CME NQ), Dow futures (CBOT YM), the US 10-year Treasury yield (CBOE TNX, shown in % with the change in basis points), the VIX (CBOE index), USD/COP, and the S&P 500 (SPX), Nasdaq 100 (NDX) and Dow Jones (INDU) spot indexes
 - USD/COP is Banco de la República's official daily rate (TRM) from Colombia's open-data portal, since IBKR doesn't offer the Colombian peso; the card shows the dates the rate is valid for and the last 30 rates
 - Grouped into **Equity indexes**, **Rates & volatility**, and **Commodities & currency**
@@ -195,6 +196,8 @@ The Signals view needs **real-time** market data for SOXL, which trades on NYSE 
 - For a **paper** account, also turn on sharing of the live account's market data with the paper account (in the Client Portal's paper trading account settings). Paper accounts have no subscriptions of their own.
 
 ### 7. Market data for Macro
+
+The Market Sentiment card needs daily history for SPX, VIX, SPY, TLT, HYG, LQD and RSP. If IBKR refuses one, its component shows the error and the score uses the rest, as long as three scored components remain.
 
 Real-time values need API-eligible subscriptions for **NYMEX** (crude oil), **COMEX** (gold), **CME** (ES, NQ), **CBOT** (YM), **CBOE Streaming Market Indexes** (TNX, VIX, SPX), **Nasdaq indexes** (NDX) and **CME indexes** (the Dow Jones index), shared to paper like the Signals data. Without CME index data IBKR refuses even the Dow index's historical bars, so that card shows the error. Without them the Macro view uses IBKR's free delayed data (10–15 minutes behind) and labels each card as delayed. Delayed data streams nothing while a market is closed, so the cards then show the last daily close and its change from the close before. Without subscriptions nothing streams even while markets are open, so values move with the 5-minute bar refresh and run about 10–15 minutes behind.
 
@@ -397,7 +400,7 @@ ibkr-financial-advisor/
 | `PUT` | `/api/signals/settings` | Update any subset of signal settings; applied live |
 | `WS` | `/api/signals/ws` | Signal event stream (see below) |
 | `GET` | `/api/orders/open` | `available` (`false` if TWS refused or didn't answer) and `orders`, one entry per open order; 503 when not connected |
-| `GET` | `/api/macro/state` | `connected` and one entry per macro indicator: `value`, `previous_close`, `change`, `change_pct` / `change_bp`, `freshness` (`live` / `delayed` / `closed`, or `daily` for the TRM), `contract`, `contract_month`, `valid_from` / `valid_to` (TRM), `updated_at`, `stale`, `error`, `sparkline` |
+| `GET` | `/api/macro/state` | `connected` and one entry per macro indicator: `value`, `previous_close`, `change`, `change_pct` / `change_bp`, `freshness` (`live` / `delayed` / `closed`, or `daily` for the TRM), `contract`, `contract_month`, `valid_from` / `valid_to` (TRM), `updated_at`, `stale`, `error`, `sparkline`. Also `sentiment`: `score`, `band`, `as_of`, `components`, `history`, `stale` |
 
 ---
 

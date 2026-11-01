@@ -2,6 +2,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { IndexCard } from '@/components/macro/IndexCard'
 import { IndicatorCard } from '@/components/macro/IndicatorCard'
 import { MACRO_SECTIONS, type MacroCardLayout } from '@/components/macro/sections'
+import { SentimentCard } from '@/components/macro/SentimentCard'
 import { useMacro } from '@/hooks/useMacro'
 import type { MacroIndicator } from '@/types'
 
@@ -41,6 +42,8 @@ export function MacroPage() {
         {!unreachable && state?.connected === false && (
           <p className="text-sm text-amber-400">Not connected to IBKR. Showing the last values received.</p>
         )}
+
+        {state?.sentiment && <SentimentCard sentiment={state.sentiment} stale={unreachable || state.sentiment.stale} />}
 
         {state &&
           sections.map(({ label, cards }) => (

@@ -288,7 +288,27 @@ export interface MacroIndicator {
   sparkline: { time: number; value: number }[]
 }
 
+export interface SentimentComponent {
+  key: string
+  label: string
+  detail: string
+  meaning: string
+  score: number | null
+  in_score: boolean
+  error: string | null
+}
+
+export interface MarketSentiment {
+  score: number | null
+  band: string | null
+  as_of: string | null // YYYY-MM-DD of the latest daily close used
+  components: SentimentComponent[]
+  history: { time: number; value: number }[]
+  stale: boolean
+}
+
 export interface MacroState {
   connected: boolean
   indicators: MacroIndicator[]
+  sentiment: MarketSentiment | null
 }

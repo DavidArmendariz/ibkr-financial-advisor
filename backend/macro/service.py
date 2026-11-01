@@ -15,6 +15,7 @@ from backend.macro.indicators import (
     num,
     parse_trading_hours,
 )
+from backend.macro.sentiment import SOURCES, Closes, build_sentiment
 from backend.macro.trm import TrmFeed
 from backend.services import ibkr_service
 
@@ -27,6 +28,8 @@ DELAYED_FROZEN = 4
 RESOLVE_INTERVAL = timedelta(days=1)
 BARS_INTERVAL = timedelta(minutes=5)
 RETRY_INTERVAL = timedelta(minutes=5)
+SENTIMENT_INTERVAL = timedelta(hours=1)
+SENTIMENT_DURATION = "2 Y"  # a year of scores plus the 125-day lookback and recent history
 INFO_CODES = {2100, 2104, 2106, 2107, 2108, 2119, 2158}
 # Historical data errors only cost the sparkline; the quote keeps streaming.
 HISTORICAL_CODES = {162, 165, 366}
@@ -64,18 +67,27 @@ class MacroService:
         self.slots = [Slot(ind) for ind in indicators if ind.source == "ibkr"]
         self.trm = next((TrmFeed(ind) for ind in indicators if ind.source == "trm"), None)
         self._task: Optional[asyncio.Task] = None
+        self._sentiment_task: Optional[asyncio.Task] = None
+        self.sentiment_closes: Closes = {}
+        self.sentiment_errors: dict[str, str] = {}
+        self.sentiment: Optional[dict] = None
+        self._sentiment_at: Optional[datetime] = None
+        self._sentiment_symbol: Optional[str] = None
 
     async def start(self) -> None:
         ib = ibkr_service.ibkr
         ib.errorEvent += self._on_error
         ib.disconnectedEvent += self._on_disconnected
         self._task = asyncio.create_task(self._loop())
+        self._sentiment_task = asyncio.create_task(self._sentiment_loop())
         if self.trm:
             self.trm.start()
 
     async def stop(self) -> None:
         if self._task:
             self._task.cancel()
+        if self._sentiment_task:
+            self._sentiment_task.cancel()
         if self.trm:
             self.trm.stop()
         for slot in self.slots:
@@ -91,7 +103,11 @@ class MacroService:
             self.trm.state(now) if ind.source == "trm" else self._indicator_state(slots[ind.key], now, connected)
             for ind in self.indicators
         ]
-        return {"connected": connected, "indicators": indicators}
+        return {
+            "connected": connected,
+            "indicators": indicators,
+            "sentiment": {**self.sentiment, "stale": not connected} if self.sentiment else None,
+        }
 
     def _indicator_state(self, slot: Slot, now: datetime, connected: bool) -> dict:
         ind, t = slot.ind, slot.ticker
@@ -177,6 +193,47 @@ class MacroService:
             slot.error = str(e) or type(e).__name__
             slot.retry_at = now + RETRY_INTERVAL
 
+    async def _sentiment_loop(self) -> None:
+        while True:
+            try:
+                now = datetime.now(timezone.utc)
+                due = self._sentiment_at is None or now - self._sentiment_at >= SENTIMENT_INTERVAL
+                if due and ibkr_service.get_status()["connected"]:
+                    await self.refresh_sentiment(now)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                log.warning("Macro sentiment: %s", type(e).__name__)
+            await asyncio.sleep(5)
+
+    async def refresh_sentiment(self, now: datetime) -> None:
+        ib = ibkr_service.ibkr
+        # One at a time, so an error can be tied to the symbol being fetched.
+        for symbol, make_contract, what_to_show in SOURCES:
+            self._sentiment_symbol = symbol
+            self.sentiment_errors.pop(symbol, None)
+            try:
+                contract = make_contract()
+                await ib.qualifyContractsAsync(contract)
+                bars = await ibkr_service.get_historical_bars(contract, SENTIMENT_DURATION, "1 day", what_to_show, True)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                bars = []
+                self.sentiment_errors[symbol] = str(e) or type(e).__name__
+            finally:
+                self._sentiment_symbol = None
+            # A drop mid-refresh returns no bars; that says nothing about the data.
+            if not ib.isConnected():
+                return
+            if bars:
+                self.sentiment_closes[symbol] = {b["time"]: b["close"] for b in bars}
+            else:
+                self.sentiment_closes.pop(symbol, None)
+                self.sentiment_errors.setdefault(symbol, "IBKR returned no data")
+        self.sentiment = build_sentiment(self.sentiment_closes, self.sentiment_errors)
+        self._sentiment_at = now
+
     async def _resolve(self, slot: Slot, now: datetime) -> None:
         ib = ibkr_service.ibkr
         assert slot.ind.make_contract is not None
@@ -234,6 +291,7 @@ class MacroService:
     # ── IBKR callbacks ──────────────────────────────────────────────────────
 
     def _on_disconnected(self) -> None:
+        self._sentiment_at = None
         for slot in self.slots:
             slot.ticker = None
             slot.resolved_at = None
@@ -244,6 +302,10 @@ class MacroService:
             return
         if code == 1101:  # restored, but subscriptions were lost
             self._on_disconnected()
+            return
+        fetching = self._sentiment_symbol
+        if fetching and getattr(contract, "symbol", None) == fetching and code in HISTORICAL_CODES | DATA_ERROR_CODES:
+            self.sentiment_errors[fetching] = f"IBKR error {code}: {message}"
             return
         con_id = getattr(contract, "conId", None)
         slot = next((s for s in self.slots if s.contract is not None and s.contract.conId == con_id), None)

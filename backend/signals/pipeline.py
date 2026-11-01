@@ -1,6 +1,6 @@
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from backend.signals.config import SignalSettings
@@ -8,6 +8,7 @@ from backend.signals.indicators import IndicatorSet
 from backend.signals.models import Bar, IndicatorValues
 from backend.signals.rules import TRIGGERS, cooldown_elapsed, in_blackout
 from backend.signals.sessions import ET, SessionCalendar
+from backend.signals.volume_profile import SessionProfile, profile_state
 
 SNAPSHOT_BARS = 20
 CHART_BARS = 1500
@@ -54,13 +55,35 @@ class SignalPipeline:
         self.last_values = IndicatorValues()
         self.last_bar: Optional[Bar] = None
         self.history: deque[tuple[Bar, IndicatorValues]] = deque(maxlen=CHART_BARS)
+        self.profile: Optional[SessionProfile] = None
+        self.previous_profile: Optional[SessionProfile] = None
+        self._profile_state: Optional[tuple[object, dict]] = None
 
     def apply_settings(self, settings: SignalSettings) -> None:
         # Only for settings outside pipeline_key(); indicator changes need a new pipeline.
         self.settings = settings
 
+    def _add_to_profile(self, bar: Bar) -> None:
+        # Regular hours only: thin pre-market prints would distort the levels.
+        hours = self.calendar.session_for(bar.time)
+        if hours is None or not hours[0] <= bar.time < hours[1]:
+            return
+        day = hours[0].date()
+        if self.profile is None or self.profile.session != day:
+            self.previous_profile, self.profile = self.profile, SessionProfile(day, bar.close)
+        self.profile.add(bar.high, bar.low, bar.volume)
+        self._profile_state = None
+
+    def volume_profile(self, now: Optional[datetime] = None) -> dict:
+        # `live` goes out every 5 seconds, but this only changes with a bar or the date.
+        today = (now or datetime.now(timezone.utc)).astimezone(ET).date()
+        if self._profile_state is None or self._profile_state[0] != today:
+            self._profile_state = (today, profile_state(self.profile, self.previous_profile, today))
+        return self._profile_state[1]
+
     def on_bar(self, bar: Bar, emit: bool = True) -> list[Candidate]:
         values = self.indicators.update(bar)
+        self._add_to_profile(bar)
         self.bars.append(bar)
         self.history.append((bar, values))
         self.last_bar, self.last_values = bar, values

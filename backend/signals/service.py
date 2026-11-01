@@ -104,6 +104,7 @@ class SignalService:
             "bar_close": bar.close if bar else None,
             "indicators": p.last_values.to_dict() if p else None,
             "forming": forming.to_dict() if (forming := self.aggregator.forming() if self.aggregator else None) else None,
+            "volume_profile": p.volume_profile() if p else None,
         }
 
     def chart(self) -> dict:

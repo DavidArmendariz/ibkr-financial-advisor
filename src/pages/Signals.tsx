@@ -21,7 +21,7 @@ export function SignalsPage() {
           </p>
         </div>
 
-        <SignalChart chart={chart} forming={live?.forming ?? null} signals={history} settings={settings} symbol={symbol} />
+        <SignalChart chart={chart} forming={live?.forming ?? null} profile={live?.volume_profile ?? null} signals={history} settings={settings} symbol={symbol} />
         <SignalStatusCards status={status} socketOpen={socketOpen} />
         <LiveValues live={live} settings={settings} symbol={symbol} />
 

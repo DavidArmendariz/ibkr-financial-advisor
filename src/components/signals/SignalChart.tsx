@@ -14,8 +14,10 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import { fmtPrice } from './format'
-import type { SignalBar, SignalChart as SignalChartData, SignalChartPoint, SignalRecord, SignalSettings } from '@/types'
+import { VolumeProfilePrimitive } from './volumeProfilePrimitive'
+import type { SignalBar, SignalChart as SignalChartData, SignalChartPoint, SignalRecord, SignalSettings, VolumeProfile, VolumeProfileLevels } from '@/types'
 
 const UP = '#34d399'
 const DOWN = '#f87171'
@@ -93,20 +95,57 @@ function line(points: SignalChartPoint[], key: LineKey | 'rsi') {
   return points.map((p) => (p[key] == null ? { time: toChartTime(p.time) } : { time: toChartTime(p.time), value: p[key] as number }))
 }
 
+const PROFILE_STORAGE_KEY = 'signals.volumeProfile'
+
+function loadProfileShown() {
+  try {
+    return localStorage.getItem(PROFILE_STORAGE_KEY) !== 'off'
+  } catch {
+    return true
+  }
+}
+
+function saveProfileShown(shown: boolean) {
+  try {
+    localStorage.setItem(PROFILE_STORAGE_KEY, shown ? 'on' : 'off')
+  } catch {
+    // Only a convenience: the toggle still works for this session.
+  }
+}
+
+function levelLines(levels: VolumeProfileLevels | null | undefined, prefix: string, color: string, style: LineStyle, poc: LineStyle, labelText: string) {
+  if (!levels) return []
+  const line = (price: number, title: string, lineStyle: LineStyle) => ({
+    price,
+    title: `${prefix}${title}`,
+    color,
+    lineWidth: 1 as const,
+    lineStyle,
+    axisLabelVisible: true,
+    axisLabelColor: '#2a2a2e',
+    axisLabelTextColor: labelText,
+  })
+  return [line(levels.poc, 'POC', poc), line(levels.value_area_high, 'VAH', style), line(levels.value_area_low, 'VAL', style)]
+}
+
 interface Props {
   chart: SignalChartData | null
   forming: SignalBar | null
+  profile: VolumeProfile | null
   signals: SignalRecord[]
   settings: SignalSettings | null
   symbol: string
 }
 
-export function SignalChart({ chart, forming, signals, settings, symbol }: Props) {
+export function SignalChart({ chart, forming, profile, signals, settings, symbol }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const rsiContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const rsiChartRef = useRef<IChartApi | null>(null)
   const rsiLevels = useRef<IPriceLine[]>([])
+  const profileLines = useRef<IPriceLine[]>([])
+  const profilePrimitive = useRef<VolumeProfilePrimitive | null>(null)
+  const [profileShown, setProfileShown] = useState(loadProfileShown)
   const series = useRef<{
     candles: ISeriesApi<'Candlestick'>
     volume: ISeriesApi<'Histogram'>
@@ -167,6 +206,9 @@ export function SignalChart({ chart, forming, signals, settings, symbol }: Props
     })
     syncRange(c, rsiChart)
     syncRange(rsiChart, c)
+    const primitive = new VolumeProfilePrimitive()
+    candles.attachPrimitive(primitive)
+    profilePrimitive.current = primitive
     series.current = { candles, volume, lines, rsi }
     chartRef.current = c
     rsiChartRef.current = rsiChart
@@ -184,6 +226,8 @@ export function SignalChart({ chart, forming, signals, settings, symbol }: Props
       chartRef.current = null
       rsiChartRef.current = null
       rsiLevels.current = []
+      profileLines.current = []
+      profilePrimitive.current = null
       series.current = null
     }
   }, [])
@@ -220,6 +264,30 @@ export function SignalChart({ chart, forming, signals, settings, symbol }: Props
       rsiChart.unsubscribeCrosshairMove(onRsiMove)
     }
   }, [])
+
+  useEffect(() => {
+    profilePrimitive.current?.setProfile(profileShown ? profile?.bars ?? null : null)
+  }, [profile?.bars, profileShown])
+
+  // Only redraw the lines when a level moves, not on every 5-second update.
+  const lineSpec = useMemo(
+    () =>
+      JSON.stringify(
+        profileShown
+          ? [
+              ...levelLines(profile?.today, '', 'rgba(255,255,255,0.7)', LineStyle.Dotted, LineStyle.Solid, 'rgba(255,255,255,0.85)'),
+              ...levelLines(profile?.yesterday, 'y', 'rgba(255,255,255,0.28)', LineStyle.Dashed, LineStyle.Dashed, 'rgba(255,255,255,0.5)'),
+            ]
+          : [],
+      ),
+    [profile?.today, profile?.yesterday, profileShown],
+  )
+  useEffect(() => {
+    const s = series.current
+    if (!s) return
+    for (const level of profileLines.current) s.candles.removePriceLine(level)
+    profileLines.current = (JSON.parse(lineSpec) as Parameters<typeof s.candles.createPriceLine>[0][]).map((line) => s.candles.createPriceLine(line))
+  }, [lineSpec])
 
   const rsiUpper = settings?.rsi_upper
   const rsiLower = settings?.rsi_lower
@@ -323,6 +391,17 @@ export function SignalChart({ chart, forming, signals, settings, symbol }: Props
               <span className="tabular-nums text-foreground">{l.text ?? fmtPrice(l.value)}</span>
             </span>
           ))}
+          <button
+            type="button"
+            aria-pressed={profileShown}
+            onClick={() => {
+              setProfileShown(!profileShown)
+              saveProfileShown(!profileShown)
+            }}
+            className={cn('no-drag ml-auto rounded border border-border px-1.5 text-muted-foreground hover:text-foreground', profileShown && 'bg-accent text-foreground')}
+          >
+            Volume profile
+          </button>
         </div>
         {bars.length === 0 && (
           <div className="flex h-24 items-center justify-center text-xs text-muted-foreground">

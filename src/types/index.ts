@@ -135,6 +135,24 @@ export interface SignalChart {
   bars: SignalChartPoint[]
 }
 
+export interface VolumeProfileLevels {
+  session: string
+  poc: number
+  value_area_high: number
+  value_area_low: number
+}
+
+export interface VolumeProfileBars extends VolumeProfileLevels {
+  bucket: number
+  buckets: { price: number; volume: number }[]
+}
+
+export interface VolumeProfile {
+  bars: VolumeProfileBars | null
+  today: VolumeProfileLevels | null
+  yesterday: VolumeProfileLevels | null
+}
+
 export interface SignalLive {
   last_price: number | null
   last_price_time: string | null
@@ -142,6 +160,7 @@ export interface SignalLive {
   bar_close: number | null
   indicators: SignalIndicators | null
   forming: SignalBar | null
+  volume_profile?: VolumeProfile | null
 }
 
 export interface LLMDecision {

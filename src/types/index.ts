@@ -89,7 +89,7 @@ export interface OpenOrdersState {
   orders: OpenOrder[]
 }
 
-export type AppTab = 'dashboard' | 'orders' | 'chat' | 'signals' | 'signal-history' | 'gamma' | 'macro' | 'settings'
+export type AppTab = 'dashboard' | 'orders' | 'chat' | 'signals' | 'signal-history' | 'gamma' | 'macro' | 'calendar' | 'settings'
 
 export type RiskProfile = 'conservative' | 'moderate' | 'aggressive'
 
@@ -302,6 +302,43 @@ export interface GammaState {
   result: GammaResult | null
   settings: GammaSettings
   connected: boolean
+}
+
+// ── Calendar ─────────────────────────────────────────────────────────────────
+
+export interface CalendarEventRecord {
+  id: string
+  name: string
+  category: 'economic' | 'earnings'
+  importance: 'high' | 'medium'
+  day: string // YYYY-MM-DD in ET
+  at: string | null
+  timing: 'before_open' | 'after_close' | null
+  source: string
+}
+
+export interface CalendarSource {
+  key: string
+  label: string
+  configured: boolean
+  updated_at: string | null
+  error: string | null
+}
+
+export interface CalendarSettings {
+  fred_key_set: boolean
+  fred_key_hint: string | null
+  finnhub_key_set: boolean
+  finnhub_key_hint: string | null
+  earnings_symbols: string[]
+  alert_evening_enabled: boolean
+  alert_soon_enabled: boolean
+}
+
+export interface CalendarState {
+  events: CalendarEventRecord[]
+  sources: CalendarSource[]
+  settings: CalendarSettings
 }
 
 // ── Macro ────────────────────────────────────────────────────────────────────

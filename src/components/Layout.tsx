@@ -9,6 +9,7 @@ import { SignalsPage } from '@/pages/Signals'
 import { SignalHistoryPage } from '@/pages/SignalHistory'
 import { GammaPage } from '@/pages/Gamma'
 import { MacroPage } from '@/pages/Macro'
+import { CalendarPage } from '@/pages/Calendar'
 import { OrdersPage } from '@/pages/Orders'
 import { usePortfolio } from '@/hooks/usePortfolio'
 import { useSidebarCollapsed } from '@/hooks/useSidebarCollapsed'
@@ -93,6 +94,7 @@ export function Layout({ activeTab, onTabChange, connectionStatus, onDisconnect 
           {activeTab === 'signal-history' && <SignalHistoryPage />}
           {activeTab === 'gamma' && <GammaPage />}
           {activeTab === 'macro' && <MacroPage />}
+          {activeTab === 'calendar' && <CalendarPage onOpenSettings={() => onTabChange('settings')} />}
           {activeTab === 'settings' && <SettingsPage />}
         </main>
       </div>

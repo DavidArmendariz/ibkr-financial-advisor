@@ -3,6 +3,8 @@ import type {
   AccountSummary,
   AIProvider,
   AppSettings,
+  CalendarSettings,
+  CalendarState,
   ChatMessage,
   ChatThread,
   ConnectionStatus,
@@ -65,6 +67,21 @@ export const getChartData = (
 
 export const getOpenOrders = () =>
   http.get<OpenOrdersState>('/api/orders/open').then((r) => r.data)
+
+// ── Calendar ─────────────────────────────────────────────────────────────────
+
+export const getCalendar = () => http.get<CalendarState>('/api/calendar').then((r) => r.data)
+
+export interface CalendarSettingsUpdate {
+  fred_api_key?: string
+  finnhub_api_key?: string
+  earnings_symbols?: string
+  alert_evening_enabled?: boolean
+  alert_soon_enabled?: boolean
+}
+
+export const updateCalendarSettings = (values: CalendarSettingsUpdate) =>
+  http.put<CalendarSettings>('/api/calendar/settings', values).then((r) => r.data)
 
 // ── Chat ─────────────────────────────────────────────────────────────────────
 

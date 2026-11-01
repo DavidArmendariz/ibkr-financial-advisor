@@ -24,9 +24,18 @@ function describe(signal) {
   return { title, body: lines.join('\n') }
 }
 
+const ET_TIME = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false })
+const TIMING_LABELS = { before_open: 'before the open', after_close: 'after the close' }
+
+function describeCalendar({ alert, event }) {
+  const when = event.at ? `${ET_TIME.format(new Date(event.at))} ET` : TIMING_LABELS[event.timing] ?? 'time not confirmed'
+  const lead = alert === 'soon' ? 'In 30 minutes' : 'Tomorrow'
+  return { title: event.name, body: `${lead}, ${when}` }
+}
+
 // The main process subscribes itself (not the renderer) so alerts still arrive
 // while the window is closed and the app lives in the dock.
-function startSignalNotifications({ url, onClick }) {
+function startSignalNotifications({ url, onClick, onCalendarClick }) {
   let socket = null
   let stopped = false
   let delay = 1000
@@ -39,6 +48,15 @@ function startSignalNotifications({ url, onClick }) {
     const notification = new Notification(describe(signal))
     live.add(notification)
     notification.on('click', () => onClick(signal))
+    notification.on('close', () => live.delete(notification))
+    notification.show()
+  }
+
+  const showCalendar = (update) => {
+    if (!Notification.isSupported()) return
+    const notification = new Notification(describeCalendar(update))
+    live.add(notification)
+    notification.on('click', () => onCalendarClick?.())
     notification.on('close', () => live.delete(notification))
     notification.show()
   }
@@ -57,6 +75,7 @@ function startSignalNotifications({ url, onClick }) {
         return
       }
       if (event.type === 'signal' && event.notify) show(event.signal)
+      if (event.type === 'calendar') showCalendar(event)
     })
     socket.on('close', () => {
       if (stopped) return
@@ -74,4 +93,4 @@ function startSignalNotifications({ url, onClick }) {
   }
 }
 
-module.exports = { startSignalNotifications, describe }
+module.exports = { startSignalNotifications, describe, describeCalendar }

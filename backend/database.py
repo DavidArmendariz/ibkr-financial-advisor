@@ -43,6 +43,23 @@ class SignalAnalysis(SQLModel, table=True):
     result: str  # JSON
 
 
+class CalendarEvent(SQLModel, table=True):
+    id: str = Field(primary_key=True)
+    source: str = Field(index=True, max_length=20)
+    name: str = Field(max_length=80)
+    category: str = Field(max_length=20)
+    importance: str = Field(max_length=10)
+    day: str = Field(index=True, max_length=10)  # YYYY-MM-DD in ET
+    at: Optional[datetime] = None  # UTC; None when the time isn't known
+    timing: Optional[str] = Field(default=None, max_length=20)
+    fetched_at: datetime
+
+
+class CalendarAlert(SQLModel, table=True):
+    id: str = Field(primary_key=True)  # event, kind and event time
+    sent_at: datetime
+
+
 class OptionOpenInterest(SQLModel, table=True):
     # IBKR only reports open interest while the market is open; the last value
     # is kept so exposure can still be computed after hours and on weekends.

@@ -57,6 +57,12 @@ Built with Electron + React on the frontend and a Python FastAPI backend. The ap
 - Futures roll to the next month on their own, following IBKR's continuous contract
 - Works without futures subscriptions using IBKR's free delayed data, labelled as delayed
 
+**Calendar**
+- The next 30 days of FOMC decisions, CPI, PPI, jobs, GDP, PCE and retail sales, plus earnings for a chip watchlist you can edit in **Settings**. Times are in ET
+- A notification at 18:00 ET the evening before each high-importance event and watchlist earnings date, and 30 minutes before high-importance events with a known time. Each alert fires once, and each can be switched off
+- Economic dates come from FRED and the Federal Reserve's site, and earnings from Finnhub. FRED and Finnhub need free API keys, added in **Settings**; each missing key only hides that source. Those services receive your key and public date or symbol requests, never account data
+- Events are saved locally, so the list still shows if a source is down. The calendar never changes signals
+
 **TWS Connection Guard**
 - On launch, auto-connects to a **paper** TWS / IB Gateway session on `127.0.0.1:7497`, connecting read-only. Live (`7496`) is never connected automatically; use the **Live** button on the lock screen
 - If an established connection drops (for example during TWS or IB Gateway's daily restart), the backend reconnects on its own, retrying with increasing waits up to 60 seconds, and the Signals stream resubscribes
@@ -320,7 +326,8 @@ ibkr-financial-advisor/
 │   │   ├── chat.py       # REST thread CRUD + WS /ws/:thread_id streaming
 │   │   ├── settings.py   # AI provider selection, Anthropic key, OpenAI-compatible config
 │   │   ├── signals.py    # GET /state, GET /history, PUT /settings, WS /ws
-│   │   └── macro.py      # GET /state
+│   │   ├── macro.py      # GET /state
+│   │   └── calendar.py   # GET /, PUT /settings
 │   ├── services/
 │   │   ├── ibkr_service.py   # ib_async singleton; connect, auto-reconnect, positions, bars
 │   │   └── ai_service.py     # Advisor prompt (risk profiles, charts) + Anthropic / OpenAI-compatible streaming
@@ -375,6 +382,7 @@ ibkr-financial-advisor/
         ├── Signals.tsx
         ├── SignalHistory.tsx
         ├── Macro.tsx
+        ├── Calendar.tsx
         └── Settings.tsx
 ```
 
@@ -406,6 +414,8 @@ ibkr-financial-advisor/
 | `PUT` | `/api/signals/settings` | Update any subset of signal settings; applied live |
 | `WS` | `/api/signals/ws` | Signal event stream (see below) |
 | `GET` | `/api/orders/open` | `available` (`false` if TWS refused or didn't answer) and `orders`, one entry per open order; 503 when not connected |
+| `GET` | `/api/calendar` | Upcoming events for 30 days, each source's status, and calendar settings with key hints only |
+| `PUT` | `/api/calendar/settings` | Update calendar keys, watchlist or alert switches |
 | `GET` | `/api/macro/state` | `connected` and one entry per macro indicator: `value`, `previous_close`, `change`, `change_pct` / `change_bp`, `freshness` (`live` / `delayed` / `closed`, or `daily` for the TRM), `contract`, `contract_month`, `valid_from` / `valid_to` (TRM), `updated_at`, `stale`, `error`, `sparkline`. Also `sentiment`: `score`, `band`, `as_of`, `components`, `history`, `stale` |
 
 ---

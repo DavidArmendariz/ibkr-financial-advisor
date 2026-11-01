@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { CalendarSettingsCard } from '@/components/calendar/CalendarSettingsCard'
 import { cn } from '@/lib/utils'
 import { getSettings, saveAnthropicApiKey, saveOpenAICompatible, setAIProvider } from '@/lib/api'
 import type { AIProvider, AppSettings } from '@/types'
@@ -57,6 +58,7 @@ export function SettingsPage() {
             )}
           </>
         )}
+        <CalendarSettingsCard />
       </div>
     </ScrollArea>
   )

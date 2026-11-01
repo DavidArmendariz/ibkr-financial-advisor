@@ -208,6 +208,7 @@ app.whenReady().then(async () => {
   stopSignalNotifications = startSignalNotifications({
     url: `ws://127.0.0.1:${BACKEND_PORT}/api/signals/ws`,
     onClick: () => showTab('signals'),
+    onCalendarClick: () => showTab('calendar'),
   })
 
   app.on('activate', () => {

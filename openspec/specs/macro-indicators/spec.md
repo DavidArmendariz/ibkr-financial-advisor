@@ -210,3 +210,18 @@ The Macro feature SHALL only read market data and contract details from IBKR and
 #### Scenario: Using the Macro view
 - **WHEN** the user opens the Macro view and it updates
 - **THEN** no orders are placed, no account data is requested for it, and the request to the open-data portal carries only the query for public TRM rates
+
+### Requirement: Delay shown on delayed cards
+A card marked Delayed SHALL show how many minutes behind its data is, measured from the end of its latest 5-minute bar. Live and closed cards SHALL NOT show a delay.
+
+#### Scenario: Delayed futures
+- **WHEN** S&P 500 futures are delayed and their latest bar ended 10 minutes ago
+- **THEN** the card says about 10 minutes behind
+
+#### Scenario: Live data
+- **WHEN** a subscription makes a card Live
+- **THEN** it shows no delay
+
+#### Scenario: No bars yet
+- **WHEN** a delayed card has no bars
+- **THEN** it says Delayed without a figure

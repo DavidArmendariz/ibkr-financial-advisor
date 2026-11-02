@@ -17,6 +17,10 @@ export function fmtChange(ind: MacroIndicator) {
   return `${sign(ind.change)}${abs}${pct}`
 }
 
+export function fmtDelay(minutes: number) {
+  return minutes < 2 ? 'current' : `about ${minutes} min behind`
+}
+
 export function fmtContractMonth(yyyymm: string) {
   const d = new Date(Number(yyyymm.slice(0, 4)), Number(yyyymm.slice(4, 6)) - 1, 1)
   return d.toLocaleString('en-US', { month: 'short', year: 'numeric' })

@@ -10,6 +10,7 @@ from backend.macro.indicators import (
     INDICATORS,
     Indicator,
     change_fields,
+    delay_minutes,
     freshness,
     is_open,
     num,
@@ -134,6 +135,9 @@ class MacroService:
             )
             prev = slot.daily[-2] if len(slot.daily) >= 2 else None
 
+        fresh = freshness(market_open, getattr(t, "marketDataType", None), use_stream and stream is not None)
+        # A delayed stream and the bars share one feed, so the bars measure both.
+        bar_end = slot.spark[-1]["time"] + BARS_INTERVAL.total_seconds() if slot.spark else None
         scale = lambda x: x / ind.divisor if x is not None else None
         value, prev = scale(value), scale(prev)
         return {
@@ -148,7 +152,8 @@ class MacroService:
             "previous_close": prev,
             **change_fields(value, prev, ind.change_mode),
             "market_open": market_open,
-            "freshness": freshness(market_open, getattr(t, "marketDataType", None), use_stream and stream is not None),
+            "freshness": fresh,
+            "delay_minutes": delay_minutes(bar_end, now) if fresh == "delayed" else None,
             "valid_from": None,
             "valid_to": None,
             "updated_at": updated.isoformat() if updated else None,

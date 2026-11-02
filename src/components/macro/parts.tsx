@@ -1,6 +1,6 @@
 import { AlertTriangle, Clock, Landmark, Moon, Radio, WifiOff } from 'lucide-react'
 import { cn, pnlClass } from '@/lib/utils'
-import { fmtChange, fmtContractMonth, fmtDay, fmtUpdated, fmtValue } from './format'
+import { fmtChange, fmtContractMonth, fmtDay, fmtDelay, fmtUpdated, fmtValue } from './format'
 import type { MacroFreshness, MacroIndicator } from '@/types'
 
 const FRESHNESS: Record<MacroFreshness, { label: string; icon: React.ElementType; className: string }> = {
@@ -49,6 +49,9 @@ export function FreshnessRow({ ind, stale }: { ind: MacroIndicator; stale: boole
     <div className="flex flex-wrap items-center gap-x-1.5 text-xs">
       <fresh.icon className={cn('h-3.5 w-3.5 shrink-0', fresh.className)} />
       <span className={fresh.className}>{fresh.label}</span>
+      {!stale && ind.freshness === 'delayed' && typeof ind.delay_minutes === 'number' && ind.delay_minutes >= 2 && (
+        <span className={fresh.className}>· {fmtDelay(ind.delay_minutes)}</span>
+      )}
       {ind.updated_at && <span className="text-muted-foreground">· updated {fmtUpdated(ind.updated_at)} ET</span>}
       {ind.valid_from && ind.valid_to && (
         <span className="text-muted-foreground">

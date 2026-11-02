@@ -8,6 +8,7 @@ import { SettingsPage } from '@/pages/Settings'
 import { SignalsPage } from '@/pages/Signals'
 import { SignalHistoryPage } from '@/pages/SignalHistory'
 import { GammaPage } from '@/pages/Gamma'
+import { GlobalMarketsPage } from '@/pages/GlobalMarkets'
 import { MacroPage } from '@/pages/Macro'
 import { CalendarPage } from '@/pages/Calendar'
 import { OrdersPage } from '@/pages/Orders'
@@ -94,6 +95,7 @@ export function Layout({ activeTab, onTabChange, connectionStatus, onDisconnect 
           {activeTab === 'signal-history' && <SignalHistoryPage />}
           {activeTab === 'gamma' && <GammaPage />}
           {activeTab === 'macro' && <MacroPage />}
+          {activeTab === 'global-markets' && <GlobalMarketsPage />}
           {activeTab === 'calendar' && <CalendarPage onOpenSettings={() => onTabChange('settings')} />}
           {activeTab === 'settings' && <SettingsPage />}
         </main>

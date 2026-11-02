@@ -75,6 +75,12 @@ def is_open(intervals: list[tuple[datetime, datetime]], now: datetime) -> bool:
     return any(start <= now < end for start, end in intervals)
 
 
+def delay_minutes(bar_end: Optional[float], now: datetime) -> Optional[int]:
+    if bar_end is None:
+        return None
+    return max(0, round((now.timestamp() - bar_end) / 60))
+
+
 def freshness(market_open: bool, market_data_type: Optional[int], streaming: bool) -> str:
     if not market_open:
         return "closed"

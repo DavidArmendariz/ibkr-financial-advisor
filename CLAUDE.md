@@ -4,7 +4,7 @@ Local-first macOS desktop app (Electron + React) with a Python FastAPI backend, 
 
 ## How changes are made: OpenSpec
 
-Behavior is specified in `openspec/specs/<capability>/spec.md` (ibkr-connection, portfolio-dashboard, open-orders, ai-advisor, ai-provider-settings, signal-alerts, signal-analysis, signal-outcomes, gamma-exposure, macro-indicators, event-calendar, app-lifecycle, app-navigation). These are the source of truth for what the app does.
+Behavior is specified in `openspec/specs/<capability>/spec.md` (ibkr-connection, portfolio-dashboard, open-orders, ai-advisor, ai-provider-settings, signal-alerts, signal-analysis, signal-outcomes, gamma-exposure, macro-indicators, global-markets, event-calendar, app-lifecycle, app-navigation). These are the source of truth for what the app does.
 
 For any new feature or behavior change, use the OpenSpec workflow instead of editing code directly:
 
@@ -19,7 +19,7 @@ Decisions made before OpenSpec are in [docs/decisions.md](docs/decisions.md); ne
 ## Layout
 
 - `electron/` — main process (`main.cjs`: spawns the packaged backend, quit/crash handling, dev Dock icon), `preload.cjs` (contextBridge), `signal-notifications.cjs` (native notifications from the signals WebSocket).
-- `backend/` — FastAPI app. `services/ibkr_service.py` holds the single shared `ib_async` connection and the reconnect supervisor. `signals/` (pipeline, indicators, rules, LLM filter, replay CLI), `gamma/` (exposure calc + chain fetching), `macro/` (macro indicator quotes + official USD/COP rate), `calendar_events/` (economic and earnings events, event alerts), `routers/` (one per feature), `database.py` (SQLModel tables).
+- `backend/` — FastAPI app. `services/ibkr_service.py` holds the single shared `ib_async` connection and the reconnect supervisor. `signals/` (pipeline, indicators, rules, LLM filter, replay CLI), `gamma/` (exposure calc + chain fetching), `macro/` (macro indicator quotes + official USD/COP rate), `global_markets/` (Asia & Europe indexes and chip stocks, bars only), `calendar_events/` (economic and earnings events, event alerts), `routers/` (one per feature), `database.py` (SQLModel tables).
 - `src/` — React 18 renderer. Views are `pages/*.tsx`, switched in `components/Layout.tsx` via the `AppTab` union in `types/index.ts` and the list in `components/Sidebar.tsx`. Each feature has a `hooks/use*.ts` and components under `components/<feature>/`.
 - `tests/` — pytest suite (backend only).
 
@@ -61,6 +61,8 @@ Before calling work done: pytest, tsc and vite build pass, and UI changes are lo
 - The macro service calls `reqMarketDataType(4)` (delayed-frozen) before subscribing its futures and indexes. The type applies to requests made after it, so set your own right before any new `reqMktData`. Delayed data streams nothing while a market is closed.
 - Error 322 (too many account summary requests) shows up from the Dashboard's 15 s polling; `accountSummaryAsync` / `reqPositionsAsync` have no timeout.
 - ib_async can report an error with no contract once a request has ended, so a missing contract doesn't mean it's yours. Match on the request id: another feature's error once stopped the SOXL stream this way.
+- Foreign quotes don't stream on this account: `reqMktData` returns nothing and no error, even with the market open, so Asia & Europe runs on historical bars.
+- For foreign stocks, naming `IBIS`, `SBF` or `TSEJ` is refused (162) while `SMART` works. `SMART` isn't the exchange's own record: it misses Amsterdam's closing auction (name `AEB`) and adds evening off-exchange trades in Tokyo. KRX stocks use `005930`-style symbols, and the KOSPI composite isn't listed (`K200` is).
 - One-off scripts must use their own client ID (the app uses `IBKR_CLIENT_ID`, default 1; replay uses +50).
 
 ## Dev gotchas

@@ -6,7 +6,7 @@ from ib_async import ContFuture, Future
 
 from backend.macro import service as macro
 from backend.macro import trm
-from backend.macro.indicators import INDICATORS, change_fields, freshness, is_open, parse_trading_hours
+from backend.macro.indicators import INDICATORS, change_fields, delay_minutes, freshness, is_open, parse_trading_hours
 from backend.signals.sessions import ET
 
 CL_HOURS = "20261017:CLOSED;20261018:1800-20261019:1700;20261019:1800-20261020:1700"
@@ -330,3 +330,10 @@ def test_trm_card_keeps_its_place_in_the_list(svc):
     service.trm.rates = trm.parse_rows(TRM_ROWS)
     keys = [i["key"] for i in service.state()["indicators"]]
     assert keys == [i.key for i in INDICATORS]
+
+
+def test_delay_is_measured_from_the_bar_end():
+    now = datetime(2026, 11, 2, 2, 0, tzinfo=timezone.utc)
+    assert delay_minutes((now - timedelta(minutes=10)).timestamp(), now) == 10
+    assert delay_minutes((now + timedelta(minutes=3)).timestamp(), now) == 0
+    assert delay_minutes(None, now) is None

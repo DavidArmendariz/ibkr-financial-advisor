@@ -27,6 +27,12 @@ Built with Electron + React on the frontend and a Python FastAPI backend. The ap
 - Real-time streaming responses via WebSocket
 - Persistent chat sessions stored in a local SQLite database; create, switch between, and delete conversations (deletion is confirmed in a dialog)
 
+**Asia & Europe**
+- Indexes (Nikkei 225, KOSPI 200, AEX, Euro Stoxx 50), the KODEX 200 ETF, and chip stocks on their home markets (Samsung, SK Hynix, TSMC, Tokyo Electron, Advantest, Disco, Renesas, ASML, ASM International, BE Semiconductor, Infineon, STMicroelectronics), in local currency against the previous close. Indexes show as cards with sparklines, and stocks in one table
+- Refreshed from 5-minute bars, so data lags by a different amount per market, and each card shows when its data is from. IBKR doesn't list the KOSPI composite, so the card shows the KOSPI 200
+- The KODEX 200 ETF has its own card beside the KOSPI 200. It tracks the index but updates sooner, so compare percent changes, not prices
+- Delayed data here and on Macro shows how many minutes behind it is, measured from its newest bar
+
 **Signals (SOXL real-time alerts)**
 - Streams 5-second real-time bars for SOXL and combines them into 1-minute bars (timeframe configurable), after warming up from historical data
 - Computes indicators incrementally on each closed bar: session VWAP (from 09:30 ET, or 04:00 ET through after-hours with pre-market), EMA 9 / 21, Bollinger Bands (20, 2σ), and relative volume

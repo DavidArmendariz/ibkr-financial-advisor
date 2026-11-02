@@ -89,7 +89,7 @@ export interface OpenOrdersState {
   orders: OpenOrder[]
 }
 
-export type AppTab = 'dashboard' | 'orders' | 'chat' | 'signals' | 'signal-history' | 'gamma' | 'macro' | 'calendar' | 'settings'
+export type AppTab = 'dashboard' | 'orders' | 'chat' | 'signals' | 'signal-history' | 'gamma' | 'macro' | 'global-markets' | 'calendar' | 'settings'
 
 export type RiskProfile = 'conservative' | 'moderate' | 'aggressive'
 
@@ -394,6 +394,35 @@ export interface CalendarState {
   settings: CalendarSettings
 }
 
+// ── Asia & Europe ────────────────────────────────────────────────────────────
+
+export interface GlobalInstrument {
+  key: string
+  label: string
+  section: string
+  group: string
+  currency: string
+  unit: string
+  decimals: number
+  tz: string
+  place: string
+  value: number | null
+  previous_close: number | null
+  change: number | null
+  change_pct: number | null
+  market_open: boolean
+  data_time: number | null
+  delay_minutes: number | null
+  stale: boolean
+  error: string | null
+  sparkline: { time: number; value: number }[]
+}
+
+export interface GlobalMarketsState {
+  connected: boolean
+  instruments: GlobalInstrument[]
+}
+
 // ── Macro ────────────────────────────────────────────────────────────────────
 
 export type MacroFreshness = 'live' | 'delayed' | 'closed' | 'daily'
@@ -413,6 +442,7 @@ export interface MacroIndicator {
   change_bp: number | null
   market_open: boolean
   freshness: MacroFreshness
+  delay_minutes?: number | null
   valid_from: string | null // YYYY-MM-DD, daily rates only
   valid_to: string | null
   updated_at: string | null

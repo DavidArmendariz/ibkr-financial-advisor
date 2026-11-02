@@ -10,6 +10,7 @@ import type {
   ConnectionStatus,
   GammaSettings,
   GammaState,
+  GlobalMarketsState,
   MacroState,
   OHLCBar,
   OpenOrdersState,
@@ -162,5 +163,7 @@ export const updateGammaSettings = (values: Partial<GammaSettings>) =>
   http.put<GammaSettings>('/api/gamma/settings', values).then((r) => r.data)
 
 // ── Macro ────────────────────────────────────────────────────────────────────
+
+export const getGlobalMarkets = () => http.get<GlobalMarketsState>('/api/global-markets').then((r) => r.data)
 
 export const getMacroState = () => http.get<MacroState>('/api/macro/state').then((r) => r.data)

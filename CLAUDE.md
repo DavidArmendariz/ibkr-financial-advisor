@@ -37,6 +37,8 @@ npx playwright install chromium   # once per machine: headless browser for UI ch
 npm run package:backend && npm run build && npx electron-builder --mac --dir   # local .app build
 ```
 
+GitHub Actions (`.github/workflows/ci.yml`) runs pytest, tsc, vite build and `openspec validate --specs --strict` on every push and pull request to `main`.
+
 Before calling work done: pytest, tsc and vite build pass, and UI changes are looked at in a browser. The renderer runs fine in Chrome at http://localhost:5273 (CORS allows it); clicks right after load can be swallowed while the app auto-connects, so wait a few seconds or click twice. For automated checks, drive it with Playwright (`require('@playwright/test').chromium` from a `node` script, run from the repo root so it resolves): locate controls by role/label and wait on them rather than sleeping, and keep scripts and screenshots in the scratchpad. Each launch gets a fresh `localStorage`, so it doesn't disturb the user's own browser state. macOS-only behavior (traffic lights, window dragging, Dock, notifications) still needs a check on the Mac.
 
 ## Conventions

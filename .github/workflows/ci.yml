@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A newer push to the same branch makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      # Python 3.12 comes from .python-version.
+      - run: uv sync --locked
+      - run: uv run pytest -q
+
+  frontend:
+    name: Frontend typecheck, build and specs
+    runs-on: ubuntu-latest
+    env:
+      # The renderer checks don't need the Electron binary.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsc --noEmit -p .
+      - run: npx vite build
+      - run: npx openspec validate --specs --strict

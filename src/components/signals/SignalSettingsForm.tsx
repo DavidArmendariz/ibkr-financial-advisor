@@ -17,6 +17,7 @@ type BoolKey =
   | 'llm_enabled'
   | 'trigger_volume_enabled'
   | 'trigger_ema_enabled'
+  | 'trigger_ema_down_enabled'
   | 'trigger_vwap_enabled'
   | 'trigger_vwap_band_enabled'
   | 'trigger_rsi_enabled'
@@ -57,6 +58,7 @@ export function SignalSettingsForm({ settings, onSave }: Props) {
   const allOff =
     !draft.trigger_volume_enabled &&
     !draft.trigger_ema_enabled &&
+    !draft.trigger_ema_down_enabled &&
     !draft.trigger_vwap_enabled &&
     !draft.trigger_vwap_band_enabled &&
     !draft.trigger_rsi_enabled
@@ -161,7 +163,8 @@ export function SignalSettingsForm({ settings, onSave }: Props) {
 
           <section className="flex flex-col gap-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Technical triggers</h3>
-            {check('trigger_ema_enabled', 'EMA cross: the fast EMA crosses above the slow EMA')}
+            {check('trigger_ema_enabled', 'EMA cross up: the fast EMA crosses above the slow EMA')}
+            {check('trigger_ema_down_enabled', 'EMA cross down: the fast EMA crosses below the slow EMA')}
             {check('trigger_vwap_enabled', 'VWAP cross: the close crosses above VWAP')}
             {check('trigger_vwap_band_enabled', 'VWAP band: the close crosses above or below VWAP by the distance below')}
             <div className="grid grid-cols-3 gap-3">

@@ -13,7 +13,7 @@ from backend.routers import signals as signals_router
 from backend.services import ibkr_service
 from backend.signals import analysis, service as signal_module
 from backend.signals.analysis import AnalysisError
-from backend.signals.rules import EMA_CROSS, VOLUME_SPIKE, VWAP_BAND_ABOVE, VWAP_BAND_BELOW, VWAP_CROSS
+from backend.signals.rules import EMA_CROSS, EMA_CROSS_DOWN, VOLUME_SPIKE, VWAP_BAND_ABOVE, VWAP_BAND_BELOW, VWAP_CROSS
 from backend.signals.service import SignalService
 
 SIGNAL_TIME = datetime(2026, 10, 28, 14, 30, tzinfo=timezone.utc)  # 10:30 ET
@@ -135,6 +135,7 @@ async def test_only_market_data_is_sent(kind):
     ("signal_type", "directions"),
     [
         (EMA_CROSS, ["long"]),
+        (EMA_CROSS_DOWN, ["short"]),
         (VWAP_CROSS, ["long"]),
         (VWAP_BAND_ABOVE, ["long"]),
         (VOLUME_SPIKE, ["long", "short"]),
@@ -155,6 +156,26 @@ async def test_a_post_mortem_gets_computed_figures_and_is_marked_hindsight():
     assert result["verdict"] == "good" and result["hindsight"] is True
     assert result["outcomes"]["return_pct"]["15m"] == pytest.approx(1)
     assert provider.max_tokens == 1500 and provider.schema == analysis.POST_SCHEMA
+
+
+async def test_a_downward_ema_cross_is_judged_as_a_short_with_short_figures():
+    provider = FakeProvider(json.dumps(POST_REPLY))
+    bars = [bar(i, 101) for i in range(30)]
+    long = await analysis.run("post", signal(VOLUME_SPIKE), bars, CLOSE_TIME, FakeProvider(json.dumps(POST_REPLY)))
+    result = await analysis.run("post", signal(EMA_CROSS_DOWN), bars, CLOSE_TIME, provider)
+    sent = provider.calls[0]
+    assert sent["directions"] == ["short"] and "outcome_for_a_long_entry_percent" not in sent
+    assert sent["outcome_for_a_short_entry_percent"]["return_pct"]["15m"] == pytest.approx(-1)
+    assert result["directions"] == ["short"]
+    figures, base = result["outcomes"], long["outcomes"]
+    assert figures["largest_gain_pct"] == pytest.approx(-base["largest_loss_pct"])
+    assert figures["largest_loss_pct"] == pytest.approx(-base["largest_gain_pct"])
+    assert figures["returned_to_start"] == base["returned_to_start"]
+
+
+def test_short_figures_keep_missing_horizons():
+    flipped = analysis.for_short({"return_pct": {"15m": 1.0, "60m": None}, "largest_gain_pct": 2.0, "largest_loss_pct": -0.5, "returned_to_start": True})
+    assert flipped == {"return_pct": {"15m": -1.0, "60m": None}, "largest_gain_pct": 0.5, "largest_loss_pct": -2.0, "returned_to_start": True}
 
 
 @pytest.mark.parametrize(

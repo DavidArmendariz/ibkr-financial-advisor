@@ -11,6 +11,7 @@ const FILTERS: { label: string; type: string | null }[] = [
   { label: 'All', type: null },
   { label: 'Relative volume', type: 'VOLUME_SPIKE' },
   { label: 'EMA cross', type: 'EMA_CROSS' },
+  { label: 'EMA cross down', type: 'EMA_CROSS_DOWN' },
   { label: 'VWAP cross', type: 'VWAP_CROSS' },
   { label: 'VWAP band above', type: 'VWAP_BAND_ABOVE' },
   { label: 'VWAP band below', type: 'VWAP_BAND_BELOW' },

@@ -9,7 +9,9 @@ from backend.signals.models import Bar, IndicatorValues
 from backend.signals.pipeline import SignalPipeline
 from backend.signals.rules import (
     EMA_CROSS,
+    EMA_CROSS_DOWN,
     TECHNICAL,
+    TRIGGERS,
     VOLUME,
     VOLUME_SPIKE,
     RSI_ABOVE,
@@ -19,7 +21,9 @@ from backend.signals.rules import (
     VWAP_CROSS,
     cooldown_elapsed,
     crosses_above,
+    crosses_below,
     ema_cross,
+    ema_cross_down,
     in_blackout,
     rsi_above,
     rsi_below,
@@ -41,6 +45,13 @@ def test_crosses_above():
     assert not crosses_above(9.9, 10.0, 10.0, 10.0)  # touching isn't crossing
 
 
+def test_crosses_below():
+    assert crosses_below(10.1, 10.0, 9.9, 10.0)
+    assert crosses_below(10.0, 10.0, 9.9, 10.0)
+    assert not crosses_below(9.9, 10.0, 9.8, 10.0)  # already below
+    assert not crosses_below(10.1, 10.0, 10.0, 10.0)  # touching isn't crossing
+
+
 def values(**changes):
     return IndicatorValues(**{**CUR.to_dict(), **changes})
 
@@ -59,6 +70,16 @@ def test_ema_cross_fires_only_on_the_crossing_bar():
     assert not ema_cross(9.0, PREV, 9.0, values(ema_fast=10.2), settings())  # already above
     assert not ema_cross(9.0, below, 9.0, values(ema_fast=9.95), settings())  # still below
     assert not ema_cross(None, None, 9.0, values(ema_fast=10.1), settings())  # no bar this session
+
+
+def test_ema_cross_down_fires_only_on_the_crossing_bar():
+    above = IndicatorValues(vwap=10.0, ema_fast=10.1, ema_slow=10.0, rvol=1.0)
+    below = IndicatorValues(vwap=10.0, ema_fast=9.9, ema_slow=10.0, rvol=1.0)
+    assert ema_cross_down(11.0, above, 11.0, values(ema_fast=9.9, rvol=0.1), settings())  # above VWAP, on low volume
+    assert not ema_cross_down(9.0, below, 9.0, values(ema_fast=9.8), settings())  # already below
+    assert not ema_cross_down(9.0, above, 9.0, values(ema_fast=10.05), settings())  # still above
+    assert not ema_cross_down(None, None, 9.0, values(ema_fast=9.9), settings())  # no bar this session
+    assert not ema_cross_down(9.0, below, 9.0, values(ema_fast=10.1), settings())  # upward cross
 
 
 def test_vwap_cross_ignores_trend_and_volume():
@@ -278,6 +299,7 @@ def test_defaults_leave_vwap_off():
     assert fields["trigger_volume_enabled"].default is True
     assert fields["trigger_ema_enabled"].default is True
     assert fields["trigger_vwap_enabled"].default is False
+    assert fields["trigger_ema_down_enabled"].default is False
 
 
 def test_triggers_on_one_bar_raise_separate_signals():
@@ -286,6 +308,55 @@ def test_triggers_on_one_bar_raise_separate_signals():
     assert types(signals) == [VOLUME_SPIKE, EMA_CROSS, VWAP_CROSS]
     assert [s.category for s in signals] == [VOLUME, TECHNICAL, TECHNICAL]
     assert len({s.time for s in signals}) == 1
+
+
+def rising_then_drop(day, hh=10):
+    # A steady climb keeps EMA fast above slow, then a sharp drop crosses it below.
+    bars = [bar(day, hh, i, 10.0 + i * 0.05, 1000) for i in range(12)]
+    bars += [bar(day, hh, 12 + i, 10.5 - i * 0.3, 1000) for i in range(3)]
+    return bars
+
+
+def test_bearish_cross_raises_ema_cross_down_once():
+    day = date(2026, 10, 6)
+    s = settings(trigger_volume_enabled=False, trigger_ema_down_enabled=True)
+    signals = run(SignalPipeline(s), rising_then_drop(day))
+    assert types(signals) == [EMA_CROSS_DOWN]
+    assert signals[0].category == TECHNICAL
+    assert signals[0].indicators.ema_fast < signals[0].indicators.ema_slow
+
+
+def test_bearish_cross_is_off_by_default():
+    s = settings(trigger_volume_enabled=False)
+    assert run(SignalPipeline(s), rising_then_drop(date(2026, 10, 6))) == []
+
+
+def test_upward_cross_raises_only_ema_cross():
+    s = settings(trigger_volume_enabled=False, trigger_ema_down_enabled=True)
+    assert types(run(SignalPipeline(s), rising_then_cross(date(2026, 10, 6)))) == [EMA_CROSS]
+
+
+def test_bearish_cross_needs_the_previous_bar_of_the_same_session():
+    day, next_day = date(2026, 10, 6), date(2026, 10, 7)
+    s = settings(open_blackout_minutes=0, trigger_volume_enabled=False, trigger_ema_down_enabled=True)
+    p = SignalPipeline(s)
+    run(p, [bar(day, 15, i, 10.0 + i * 0.05, 1000) for i in range(30)])
+    assert p.prev[1].ema_fast > p.prev[1].ema_slow
+    first = run(p, [bar(next_day, 9, 30, 8.0, 1000)])
+    assert first == [] and p.prev[1].ema_fast < p.prev[1].ema_slow
+
+
+def test_with_the_switch_off_signals_match_the_triggers_before_it(monkeypatch):
+    # The same stream through the old trigger list and the new one, switch off.
+    from backend.signals import pipeline as pipeline_module
+
+    day = date(2026, 10, 6)
+    stream = rising_then_cross(day) + [bar(day, 11, i, 10.2 + (0.4 if i % 7 < 3 else -0.4), 1000 + 500 * (i % 4)) for i in range(60)]
+    s = settings(trigger_vwap_enabled=True, cooldown_minutes=0)
+    now = [(c.signal_type, c.time) for c in run(SignalPipeline(s), stream)]
+    monkeypatch.setattr(pipeline_module, "TRIGGERS", tuple(t for t in TRIGGERS if t.signal_type != EMA_CROSS_DOWN))
+    before = [(c.signal_type, c.time) for c in run(SignalPipeline(s), stream)]
+    assert now == before and EMA_CROSS in {t for t, _ in now}
 
 
 def test_all_triggers_off_raises_nothing():

@@ -7,7 +7,7 @@ import anthropic
 import openai
 
 from backend.signals.llm_filter import LLMProvider, load_json_reply
-from backend.signals.rules import EMA_CROSS, VWAP_BAND_ABOVE, VWAP_CROSS
+from backend.signals.rules import EMA_CROSS, EMA_CROSS_DOWN, VWAP_BAND_ABOVE, VWAP_CROSS
 
 KINDS = ("pre", "post")
 TIMEOUT_SECONDS = 60.0
@@ -17,6 +17,7 @@ MIN_MINUTES_AFTER = 15
 HORIZONS = (15, 30, 60)
 CONTEXT_BAR_SECONDS = 300
 LONG_TRIGGERS = {EMA_CROSS, VWAP_CROSS, VWAP_BAND_ABOVE, "LONG_ENTRY"}
+SHORT_TRIGGERS = {EMA_CROSS_DOWN}
 
 PRE_SCHEMA = {
     "type": "object",
@@ -82,7 +83,22 @@ def check_post_mortem_ready(signal_time: datetime, close_time: datetime, now: da
 
 
 def directions_for(signal_type: str) -> list[str]:
-    return ["long"] if signal_type in LONG_TRIGGERS else ["long", "short"]
+    if signal_type in LONG_TRIGGERS:
+        return ["long"]
+    if signal_type in SHORT_TRIGGERS:
+        return ["short"]
+    return ["long", "short"]
+
+
+def for_short(figures: dict) -> dict:
+    # A short gains what a long loses, so its best and worst moves swap.
+    flip = lambda v: None if v is None else -v  # noqa: E731
+    return {
+        "return_pct": {k: flip(v) for k, v in figures["return_pct"].items()},
+        "largest_gain_pct": flip(figures["largest_loss_pct"]),
+        "largest_loss_pct": flip(figures["largest_gain_pct"]),
+        "returned_to_start": figures["returned_to_start"],
+    }
 
 
 def _percent(price: float, entry: float) -> float:
@@ -139,11 +155,13 @@ def pre_request(signal: dict, bars: list[dict]) -> dict:
 
 
 def post_request(signal: dict, bars: list[dict], figures: dict) -> dict:
+    directions = directions_for(signal["signal_type"])
+    entry = "short" if directions == ["short"] else "long"
     return {
         "signal": signal_facts(signal),
         "session_bars_5min_time_ohlcv": context_bars(bars),
-        "directions": directions_for(signal["signal_type"]),
-        "outcome_for_a_long_entry_percent": figures,
+        "directions": directions,
+        f"outcome_for_a_{entry}_entry_percent": figures,
     }
 
 
@@ -196,6 +214,8 @@ async def run(kind: str, signal: dict, bars: list[dict], close_time: datetime, p
         if not later:
             raise AnalysisError(502, "IBKR returned no bars after this signal")
         figures = outcomes(later, signal["price"], signal_time, close_time)
+        if directions_for(signal["signal_type"]) == ["short"]:
+            figures = for_short(figures)
         request = post_request(signal, bars, figures)
         reply = parse_post(await _ask(provider, POST_PROMPT, request, POST_SCHEMA))
         return {**reply, "directions": request["directions"], "outcomes": figures, "hindsight": True}

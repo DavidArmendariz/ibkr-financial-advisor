@@ -73,7 +73,9 @@ function PostResult({ result }: { result: PostMortem }) {
         <Figure label="Largest loss" value={largest_loss_pct} />
       </dl>
       <p className="text-muted-foreground">
-        Figures are for a long entry. {result.directions.includes('short') ? 'A short is the opposite. ' : ''}
+        {result.directions.length === 1 && result.directions[0] === 'short'
+          ? 'Figures are for a short entry. '
+          : `Figures are for a long entry. ${result.directions.includes('short') ? 'A short is the opposite. ' : ''}`}
         {returned_to_start ? 'Price came back to the signal level.' : "Price didn't come back to the signal level."}
       </p>
       <p>{result.explanation}</p>

@@ -7,6 +7,7 @@ from backend.signals.models import IndicatorValues
 
 VOLUME_SPIKE = "VOLUME_SPIKE"
 EMA_CROSS = "EMA_CROSS"
+EMA_CROSS_DOWN = "EMA_CROSS_DOWN"
 VWAP_CROSS = "VWAP_CROSS"
 VWAP_BAND_ABOVE = "VWAP_BAND_ABOVE"
 VWAP_BAND_BELOW = "VWAP_BAND_BELOW"
@@ -19,6 +20,10 @@ TECHNICAL = "technical"
 
 def crosses_above(prev_value: float, prev_level: float, value: float, level: float) -> bool:
     return prev_value <= prev_level and value > level
+
+
+def crosses_below(prev_value: float, prev_level: float, value: float, level: float) -> bool:
+    return prev_value >= prev_level and value < level
 
 
 def volume_spike(
@@ -41,6 +46,18 @@ def ema_cross(
     if prev is None or prev.ema_fast is None or prev.ema_slow is None:
         return False
     return crosses_above(prev.ema_fast, prev.ema_slow, cur.ema_fast, cur.ema_slow)
+
+
+def ema_cross_down(
+    prev_close: Optional[float],
+    prev: Optional[IndicatorValues],
+    close: float,
+    cur: IndicatorValues,
+    s: SignalSettings,
+) -> bool:
+    if prev is None or prev.ema_fast is None or prev.ema_slow is None:
+        return False
+    return crosses_below(prev.ema_fast, prev.ema_slow, cur.ema_fast, cur.ema_slow)
 
 
 def vwap_cross(
@@ -121,6 +138,7 @@ class Trigger:
 TRIGGERS = (
     Trigger(VOLUME_SPIKE, VOLUME, "trigger_volume_enabled", volume_spike),
     Trigger(EMA_CROSS, TECHNICAL, "trigger_ema_enabled", ema_cross),
+    Trigger(EMA_CROSS_DOWN, TECHNICAL, "trigger_ema_down_enabled", ema_cross_down),
     Trigger(VWAP_CROSS, TECHNICAL, "trigger_vwap_enabled", vwap_cross),
     Trigger(VWAP_BAND_ABOVE, TECHNICAL, "trigger_vwap_band_enabled", vwap_band_above),
     Trigger(VWAP_BAND_BELOW, TECHNICAL, "trigger_vwap_band_enabled", vwap_band_below),

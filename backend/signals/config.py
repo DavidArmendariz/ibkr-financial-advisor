@@ -21,6 +21,7 @@ class SignalSettings(BaseSettings):
     rvol_threshold: float = Field(1.5, ge=0, le=20)
     trigger_volume_enabled: bool = True
     trigger_ema_enabled: bool = True
+    trigger_ema_down_enabled: bool = False
     trigger_vwap_enabled: bool = False
     trigger_vwap_band_enabled: bool = True
     vwap_band_std: float = Field(2.0, gt=0, le=5)

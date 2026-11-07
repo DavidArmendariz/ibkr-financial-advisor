@@ -301,6 +301,7 @@ export interface SignalSettings {
   rvol_threshold: number
   trigger_volume_enabled: boolean
   trigger_ema_enabled: boolean
+  trigger_ema_down_enabled: boolean
   trigger_vwap_enabled: boolean
   trigger_vwap_band_enabled: boolean
   vwap_band_std: number

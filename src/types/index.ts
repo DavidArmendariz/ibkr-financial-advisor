@@ -84,6 +84,28 @@ export interface OpenOrder {
   status: string
 }
 
+export interface FilledOrder {
+  perm_id: number
+  symbol: string
+  asset_class: string
+  currency: string
+  expiry: string | null
+  strike: number | null
+  right: string | null
+  action: string
+  quantity: number
+  average_price: number
+  venue: string
+  commission: number | null
+  realized_pnl: number | null
+  time: string
+}
+
+export interface FilledOrdersState {
+  available: boolean
+  orders: FilledOrder[]
+}
+
 export interface OpenOrdersState {
   available: boolean
   orders: OpenOrder[]

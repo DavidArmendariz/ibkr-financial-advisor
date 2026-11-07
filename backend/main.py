@@ -24,6 +24,7 @@ async def lifespan(app: FastAPI):
     asyncio.set_event_loop(asyncio.get_running_loop())
     await create_db_and_tables()
     supervisor = asyncio.create_task(ibkr_service.supervise())
+    fills = asyncio.create_task(ibkr_service.capture_fills())
     await signal_service.start()
     await gamma_service.start()
     await macro_service.start()
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
     await global_markets_service.stop()
     await macro_service.stop()
     await gamma_service.stop()
+    fills.cancel()
     supervisor.cancel()
     await signal_service.stop()
     if ibkr.isConnected():

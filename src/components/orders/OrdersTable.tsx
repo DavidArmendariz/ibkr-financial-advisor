@@ -10,11 +10,11 @@ function formatExpiry(expiry: string) {
   return `${day ? `${Number(day)} ` : ''}${month} ${expiry.slice(0, 4)}`
 }
 
-function contractTerms({ expiry, strike, right }: OpenOrder) {
+export function contractTerms({ expiry, strike, right }: Pick<OpenOrder, 'expiry' | 'strike' | 'right'>) {
   return [expiry && formatExpiry(expiry), strike, right].filter(Boolean).join(' ')
 }
 
-function formatPrice(price: number | null, currency: string) {
+export function formatPrice(price: number | null, currency: string) {
   if (price === null) return ''
   return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 4 }).format(price)
 }

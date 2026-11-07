@@ -1,11 +1,17 @@
 import asyncio
 import calendar
-from datetime import datetime
+import logging
+from datetime import datetime, timedelta, timezone
 from typing import Optional
-from ib_async import IB, Contract, OrderStatus, Stock, Forex
+from ib_async import IB, Contract, ExecutionFilter, OrderStatus, Stock, Forex
 from ib_async.util import UNSET_DOUBLE
+from sqlmodel import select
 
+from backend import database
 from backend.config import get_settings
+from backend.database import TradeFill
+
+log = logging.getLogger(__name__)
 
 # Only ib_async's *Async APIs are used, awaited on FastAPI's own event loop,
 # so no nest_asyncio patching is needed (and it can't patch uvloop anyway).
@@ -182,6 +188,9 @@ async def get_positions() -> list[dict]:
 
 
 OPEN_ORDERS_TIMEOUT = 5.0
+FILLS_LOOKBACK = timedelta(days=7)
+FILLS_CAPTURE_SECONDS = 60
+FILLS_SHOWN = 2000
 
 # ib_async tracks this request under one name, so a second concurrent call would
 # replace the first one's future and leave it unanswered.
@@ -217,6 +226,109 @@ def _open_order(trade) -> dict:
         "time_in_force": order.tif,
         "status": status.status,
     }
+
+
+def _reported(value: Optional[float]) -> Optional[float]:
+    # Commission reports arrive after the fill, and stay at zero or unset until then.
+    return None if value in (None, 0, UNSET_DOUBLE) else value
+
+
+def _fill_row(fill, mode: str) -> dict:
+    contract, execution, report = fill.contract, fill.execution, fill.commissionReport
+    return {
+        "exec_id": execution.execId,
+        "mode": mode,
+        "perm_id": execution.permId,
+        "time": execution.time.astimezone(timezone.utc),
+        "symbol": contract.symbol,
+        "asset_class": contract.secType,
+        "currency": contract.currency,
+        "expiry": contract.lastTradeDateOrContractMonth or None,
+        "strike": contract.strike or None,
+        "right": None if contract.right in ("", "?") else contract.right,
+        "action": "BUY" if execution.side == "BOT" else "SELL",
+        "shares": execution.shares,
+        "price": execution.price,
+        "venue": execution.exchange,
+        "commission": _reported(report.commission),
+        "realized_pnl": _reported(report.realizedPNL),
+    }
+
+
+def _filled_order(rows: list[TradeFill]) -> dict:
+    last = max(rows, key=lambda r: r.time)
+    shares = sum(r.shares for r in rows)
+    commissions = [r.commission for r in rows if r.commission is not None]
+    pnls = [r.realized_pnl for r in rows if r.realized_pnl is not None]
+    time = last.time if last.time.tzinfo else last.time.replace(tzinfo=timezone.utc)
+    return {
+        "perm_id": last.perm_id,
+        "symbol": last.symbol,
+        "asset_class": last.asset_class,
+        "currency": last.currency,
+        "expiry": last.expiry,
+        "strike": last.strike,
+        "right": last.right,
+        "action": last.action,
+        "quantity": shares,
+        "average_price": sum(r.price * r.shares for r in rows) / shares,
+        "venue": last.venue,
+        "commission": sum(commissions) if commissions else None,
+        "realized_pnl": sum(pnls) if pnls else None,
+        "time": time.isoformat(),
+    }
+
+
+async def sync_fills() -> bool:
+    mode = get_status()["mode"]
+    if mode is None:
+        return False
+    since = (datetime.now(timezone.utc) - FILLS_LOOKBACK).strftime("%Y%m%d-%H:%M:%S")
+    try:
+        replies = await asyncio.wait_for(ibkr.reqExecutionsAsync(ExecutionFilter(time=since)), OPEN_ORDERS_TIMEOUT)
+    except asyncio.TimeoutError:
+        return False
+
+    # A reply's fills are blank copies: commission reports land on ib_async's own records.
+    stored = {fill.execution.execId: fill for fill in ibkr.fills()}
+    async with database.AsyncSessionLocal() as session:
+        for reply in replies:
+            row = _fill_row(stored.get(reply.execution.execId, reply), mode)
+            saved = await session.get(TradeFill, row["exec_id"])
+            if saved is None:
+                session.add(TradeFill(**row))
+                continue
+            # Reports arrive after the fill, and a later reply can be blank again.
+            saved.commission = row["commission"] if row["commission"] is not None else saved.commission
+            saved.realized_pnl = row["realized_pnl"] if row["realized_pnl"] is not None else saved.realized_pnl
+        await session.commit()
+    return True
+
+
+async def capture_fills() -> None:
+    # Runs in every view, so a fill is saved even if Orders is never opened.
+    while True:
+        try:
+            if ibkr.isConnected():
+                await sync_fills()
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            log.warning("Couldn't save fills: %s", type(e).__name__)
+        await asyncio.sleep(FILLS_CAPTURE_SECONDS)
+
+
+async def get_filled_orders() -> dict:
+    available = await sync_fills()
+    mode = get_status()["mode"]
+    query = select(TradeFill).where(TradeFill.mode == mode).order_by(TradeFill.time.desc()).limit(FILLS_SHOWN)
+    async with database.AsyncSessionLocal() as session:
+        rows = (await session.exec(query)).all()
+    by_order: dict[int, list[TradeFill]] = {}
+    for row in rows:
+        by_order.setdefault(row.perm_id, []).append(row)
+    orders = [_filled_order(group) for group in by_order.values()]
+    return {"available": available, "orders": sorted(orders, key=lambda o: o["time"], reverse=True)}
 
 
 async def get_open_orders() -> dict:

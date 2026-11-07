@@ -14,6 +14,7 @@ import type {
   MacroState,
   OHLCBar,
   OpenOrdersState,
+  FilledOrdersState,
   Position,
   SignalAnalysis,
   SignalAnalysisKind,
@@ -66,6 +67,9 @@ export const getChartData = (
     .then((r) => r.data)
 
 // ── Orders ───────────────────────────────────────────────────────────────────
+
+export const getFilledOrders = () =>
+  http.get<FilledOrdersState>('/api/orders/filled').then((r) => r.data)
 
 export const getOpenOrders = () =>
   http.get<OpenOrdersState>('/api/orders/open').then((r) => r.data)

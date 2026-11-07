@@ -60,6 +60,25 @@ class OutcomeBaseline(SQLModel, table=True):
     series: str
 
 
+class TradeFill(SQLModel, table=True):
+    exec_id: str = Field(primary_key=True, max_length=60)
+    mode: str = Field(index=True, max_length=10)  # "live" | "paper"
+    perm_id: int = Field(index=True)
+    time: datetime = Field(index=True)  # UTC
+    symbol: str = Field(max_length=20)
+    asset_class: str = Field(max_length=10)
+    currency: str = Field(max_length=10)
+    expiry: Optional[str] = Field(default=None, max_length=10)
+    strike: Optional[float] = None
+    right: Optional[str] = Field(default=None, max_length=4)
+    action: str = Field(max_length=4)
+    shares: float
+    price: float
+    venue: str = Field(max_length=20)
+    commission: Optional[float] = None
+    realized_pnl: Optional[float] = None
+
+
 class CalendarEvent(SQLModel, table=True):
     id: str = Field(primary_key=True)
     source: str = Field(index=True, max_length=20)

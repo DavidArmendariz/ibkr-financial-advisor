@@ -27,6 +27,11 @@ Built with Electron + React on the frontend and a Python FastAPI backend. The ap
 - Real-time streaming responses via WebSocket
 - Persistent chat sessions stored in a local SQLite database; create, switch between, and delete conversations (deletion is confirmed in a dialog)
 
+**Trade Planner**
+- Wilder's ATR for SOXL and SOXS, on the Signals timeframe and over 14 sessions
+- For a long trade in either, it calculates a stop and target from ATR multiples and the shares that risk a set amount (a percent of net liquidation, or dollars), with a warning above available funds
+- Shows the bracket values to enter in TWS, with a Copy button. It never places orders
+
 **Asia & Europe**
 - Indexes (Nikkei 225, KOSPI 200, AEX, Euro Stoxx 50), the KODEX 200 ETF, and chip stocks on their home markets (Samsung, SK Hynix, TSMC, Tokyo Electron, Advantest, Disco, Renesas, ASML, ASM International, BE Semiconductor, Infineon, STMicroelectronics), in local currency against the previous close. Indexes show as cards with sparklines, and stocks in one table
 - Refreshed from 5-minute bars, so data lags by a different amount per market, and each card shows when its data is from. IBKR doesn't list the KOSPI composite, so the card shows the KOSPI 200
@@ -161,6 +166,9 @@ Signal settings are stored in the same file as `SIGNALS_*` keys (for example `SI
 | `SIGNALS_TRIGGER_VWAP_BAND_ENABLED` / `SIGNALS_VWAP_BAND_STD` | `true` / `2.0` (above 0, up to 5) |
 | `SIGNALS_TRIGGER_RSI_ENABLED` / `SIGNALS_RSI_PERIOD` | `true` / `14` |
 | `SIGNALS_RSI_UPPER` / `SIGNALS_RSI_LOWER` | `75` / `25` |
+| `SIGNALS_ATR_PERIOD` | `14` (shown and used by the Trade Planner, not a trigger) |
+| `PLANNER_STOP_MULTIPLE` / `PLANNER_TARGET_MULTIPLE` | `1.5` / `3` |
+| `PLANNER_ATR_BASIS` / `PLANNER_RISK_MODE` / `PLANNER_RISK_PERCENT` / `PLANNER_RISK_DOLLARS` | `intraday` / `percent` / `1` / `1000` |
 | `SIGNALS_INCLUDE_PREMARKET` | `false` |
 | `SIGNALS_OPEN_BLACKOUT_MINUTES` / `SIGNALS_CLOSE_BLACKOUT_MINUTES` | `10` / `10` |
 | `SIGNALS_COOLDOWN_MINUTES` | `5` |

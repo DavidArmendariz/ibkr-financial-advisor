@@ -29,6 +29,7 @@ class IndicatorValues:
     bb_lower: Optional[float] = None
     rvol: Optional[float] = None
     rsi: Optional[float] = None
+    atr: Optional[float] = None
 
     def ready(self) -> bool:
         return None not in (self.vwap, self.ema_fast, self.ema_slow, self.bb_mid, self.rvol)

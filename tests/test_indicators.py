@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import pytest
 
-from backend.signals.indicators import EMA, RSI, Bollinger, RelativeVolume, SessionVWAP
+from backend.signals.indicators import ATR, EMA, RSI, Bollinger, RelativeVolume, SessionVWAP
 from backend.signals.models import Bar
 from backend.signals.sessions import ET, SessionCalendar
 
@@ -184,3 +184,27 @@ def test_after_hours_vwap_restarts_next_session():
     vwap.update(flat(6, 10, 10.0))
     assert vwap.update(flat(6, 17, 20.0)) == 15.0
     assert vwap.update(flat(7, 4, 30.0)) == 30.0
+
+
+def test_atr_matches_pandas_wilder():
+    import pandas as pd
+
+    rows = [(10 + (i % 7) * 0.3, 9 + (i % 5) * 0.2, 9.5 + (i % 6) * 0.25) for i in range(40)]
+    frame = pd.DataFrame(rows, columns=["high", "low", "close"])
+    prev = frame["close"].shift()
+    tr = pd.concat([frame["high"] - frame["low"], (frame["high"] - prev).abs(), (frame["low"] - prev).abs()], axis=1).max(axis=1)
+    period, expected = 14, []
+    value = tr.iloc[:period].mean()
+    expected.append(value)
+    for x in tr.iloc[period:]:
+        value = (value * (period - 1) + x) / period
+        expected.append(value)
+    atr = ATR(period)
+    ours = [v for v in (atr.update(h, l, c) for h, l, c in rows) if v is not None]
+    assert ours == pytest.approx(expected)
+
+
+def test_atr_counts_a_gap_from_the_previous_close():
+    atr = ATR(2)
+    atr.update(10.5, 9.5, 10.0)
+    assert atr.update(13.0, 12.0, 12.5) == pytest.approx((1.0 + 3.0) / 2)

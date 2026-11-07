@@ -10,6 +10,7 @@ export interface AccountSummary {
   UnrealizedPnL: number
   RealizedPnL: number
   BuyingPower: number
+  AvailableFunds?: number
   TotalCashValue: number
   GrossPositionValue: number
 }
@@ -111,7 +112,7 @@ export interface OpenOrdersState {
   orders: OpenOrder[]
 }
 
-export type AppTab = 'dashboard' | 'orders' | 'chat' | 'signals' | 'signal-history' | 'gamma' | 'macro' | 'global-markets' | 'calendar' | 'settings'
+export type AppTab = 'dashboard' | 'orders' | 'chat' | 'signals' | 'signal-history' | 'trade-planner' | 'gamma' | 'macro' | 'global-markets' | 'calendar' | 'settings'
 
 export type RiskProfile = 'conservative' | 'moderate' | 'aggressive'
 
@@ -139,6 +140,7 @@ export interface SignalIndicators {
   bb_upper: number | null
   bb_lower: number | null
   rvol: number | null
+  atr?: number | null // missing on signals recorded before ATR
 }
 
 export interface SignalBar {
@@ -304,6 +306,7 @@ export interface SignalSettings {
   vwap_band_std: number
   trigger_rsi_enabled: boolean
   rsi_period: number
+  atr_period: number
   rsi_upper: number
   rsi_lower: number
   include_premarket: boolean
@@ -497,3 +500,63 @@ export interface MacroState {
   indicators: MacroIndicator[]
   sentiment: MarketSentiment | null
 }
+
+// ── Trade Planner ────────────────────────────────────────────────────────────
+
+export type PlannerSymbol = 'SOXL' | 'SOXS'
+export type AtrBasis = 'intraday' | 'daily'
+
+export interface PlannerSettings {
+  symbol: PlannerSymbol
+  atr_basis: AtrBasis
+  stop_multiple: number
+  target_multiple: number
+  risk_mode: 'percent' | 'dollars'
+  risk_percent: number
+  risk_dollars: number
+}
+
+export interface PlannerQuote {
+  symbol: PlannerSymbol
+  price: number | null
+  price_time: string | null
+  intraday_atr: number | null
+  intraday_pct: number | null
+  intraday_time: string | null
+  daily_atr: number | null
+  daily_pct: number | null
+  daily_time: string | null
+  bid: number | null
+  ask: number | null
+  quote_time: string | null
+  quote_delayed: boolean
+  error: string | null
+}
+
+export interface PlannerState {
+  connected: boolean
+  mode: 'live' | 'paper' | null
+  account: { net_liquidation: number | null; available_funds: number | null } | null
+  settings: PlannerSettings
+  intraday_minutes: number
+  intraday_period: number
+  daily_period: number
+  quotes: PlannerQuote[]
+}
+
+export type TradePlan =
+  | {
+      ok: true
+      entry: number
+      stop: number
+      target: number
+      stop_pct: number
+      target_pct: number
+      shares: number
+      position_value: number
+      risk_dollars: number
+      reward_dollars: number
+      reward_risk: number
+      exceeds_funds: boolean
+    }
+  | { ok: false; reason: string }

@@ -264,7 +264,7 @@ def test_pipeline_emits_trigger_with_snapshot():
     snap = signals[0].snapshot()
     assert snap["price"] == 10.2
     assert snap["category"] == VOLUME
-    assert set(snap["indicators"]) == {"vwap", "vwap_std", "rsi", "ema_fast", "ema_slow", "bb_mid", "bb_upper", "bb_lower", "rvol"}
+    assert set(snap["indicators"]) == {"vwap", "vwap_std", "rsi", "atr", "ema_fast", "ema_slow", "bb_mid", "bb_upper", "bb_lower", "rvol"}
     assert 1 <= len(snap["bars"]) <= 20
     assert snap["time"].startswith("2026-10-06T10:14")
 

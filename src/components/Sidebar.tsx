@@ -1,4 +1,4 @@
-import { BarChart2, Bot, CalendarDays, Earth, Globe, History, ListOrdered, PanelLeftClose, Radar, Settings, Sigma } from 'lucide-react'
+import { BarChart2, Bot, Calculator, CalendarDays, Earth, Globe, History, ListOrdered, PanelLeftClose, Radar, Settings, Sigma } from 'lucide-react'
 import { ConnectionIndicator } from '@/components/ConnectionIndicator'
 import { DeltaWitsMark } from '@/components/DeltaWitsMark'
 import { SIDEBAR_SHORTCUT, cn, formatCurrency, isMac, pnlClass } from '@/lib/utils'
@@ -19,6 +19,7 @@ const TABS: { id: AppTab; label: string; icon: React.ElementType }[] = [
   { id: 'chat', label: 'AI Advisor', icon: Bot },
   { id: 'signals', label: 'Signals', icon: Radar },
   { id: 'signal-history', label: 'Signal History', icon: History },
+  { id: 'trade-planner', label: 'Trade Planner', icon: Calculator },
   { id: 'gamma', label: 'Gamma', icon: Sigma },
   { id: 'macro', label: 'Macro', icon: Globe },
   { id: 'global-markets', label: 'Asia & Europe', icon: Earth },

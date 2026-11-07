@@ -26,6 +26,7 @@ class SignalSettings(BaseSettings):
     vwap_band_std: float = Field(2.0, gt=0, le=5)
     trigger_rsi_enabled: bool = True
     rsi_period: int = Field(14, ge=2, le=200)
+    atr_period: int = Field(14, ge=2, le=200)
     rsi_upper: float = Field(75.0, gt=0, lt=100)
     rsi_lower: float = Field(25.0, gt=0, lt=100)
     include_premarket: bool = False
@@ -40,7 +41,7 @@ class SignalSettings(BaseSettings):
 
     def warmup_bars(self) -> int:
         # EMAs need a few periods to forget their seed value.
-        return max(3 * self.ema_slow, 3 * self.ema_fast, 3 * self.rsi_period, self.bb_period, self.rvol_period) + 1
+        return max(3 * self.ema_slow, 3 * self.ema_fast, 3 * self.rsi_period, 3 * self.atr_period, self.bb_period, self.rvol_period) + 1
 
     def pipeline_key(self) -> tuple:
         # Changing any of these invalidates indicator state, so the stream re-warms.
@@ -53,6 +54,7 @@ class SignalSettings(BaseSettings):
             self.bb_std,
             self.rvol_period,
             self.rsi_period,
+            self.atr_period,
             self.include_premarket,
         )
 

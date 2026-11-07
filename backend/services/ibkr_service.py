@@ -113,6 +113,7 @@ async def get_account_summary() -> dict:
         "UnrealizedPnL",
         "RealizedPnL",
         "BuyingPower",
+        "AvailableFunds",
         "TotalCashValue",
         "GrossPositionValue",
     ]

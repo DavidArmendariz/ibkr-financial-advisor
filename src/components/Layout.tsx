@@ -10,6 +10,7 @@ import { SignalHistoryPage } from '@/pages/SignalHistory'
 import { GammaPage } from '@/pages/Gamma'
 import { GlobalMarketsPage } from '@/pages/GlobalMarkets'
 import { MacroPage } from '@/pages/Macro'
+import { TradePlannerPage } from '@/pages/TradePlanner'
 import { CalendarPage } from '@/pages/Calendar'
 import { OrdersPage } from '@/pages/Orders'
 import { usePortfolio } from '@/hooks/usePortfolio'
@@ -93,6 +94,7 @@ export function Layout({ activeTab, onTabChange, connectionStatus, onDisconnect 
           {activeTab === 'chat' && <ChatPage onOpenSettings={() => onTabChange('settings')} />}
           {activeTab === 'signals' && <SignalsPage />}
           {activeTab === 'signal-history' && <SignalHistoryPage />}
+          {activeTab === 'trade-planner' && <TradePlannerPage />}
           {activeTab === 'gamma' && <GammaPage />}
           {activeTab === 'macro' && <MacroPage />}
           {activeTab === 'global-markets' && <GlobalMarketsPage />}

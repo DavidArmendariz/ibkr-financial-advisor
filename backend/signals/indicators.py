@@ -75,6 +75,28 @@ class RSI:
         return 100 - 100 / (1 + self.avg_gain / self.avg_loss)
 
 
+class ATR:
+    # Wilder's, like RSI: true range seeded with a plain mean, then smoothed.
+    # The first bar has no previous close, so its range is just high minus low.
+    def __init__(self, period: int):
+        self.period = period
+        self.prev_close: Optional[float] = None
+        self.seed: list[float] = []
+        self.value: Optional[float] = None
+
+    def update(self, high: float, low: float, close: float) -> Optional[float]:
+        prev, self.prev_close = self.prev_close, close
+        true_range = high - low if prev is None else max(high - low, abs(high - prev), abs(low - prev))
+        if self.value is None:
+            self.seed.append(true_range)
+            if len(self.seed) < self.period:
+                return None
+            self.value = sum(self.seed) / self.period
+        else:
+            self.value = (self.value * (self.period - 1) + true_range) / self.period
+        return self.value
+
+
 class SessionVWAP:
     # `anchor_for(bar_time)` returns the session start for that bar, or None when
     # the bar falls outside the session (e.g. pre-market when it's excluded).
@@ -133,12 +155,14 @@ class IndicatorSet:
         rvol_period: int,
         vwap_anchor_for: Callable[[datetime], Optional[datetime]],
         rsi_period: int = 14,
+        atr_period: int = 14,
     ):
         self.ema_fast = EMA(ema_fast)
         self.ema_slow = EMA(ema_slow)
         self.bollinger = Bollinger(bb_period, bb_std)
         self.rvol = RelativeVolume(rvol_period)
         self.rsi = RSI(rsi_period)
+        self.atr = ATR(atr_period)
         self.vwap = SessionVWAP(vwap_anchor_for)
 
     def update(self, bar: Bar) -> IndicatorValues:
@@ -153,4 +177,5 @@ class IndicatorSet:
             bb_lower=bands[2] if bands else None,
             rvol=self.rvol.update(bar.volume),
             rsi=self.rsi.update(bar.close),
+            atr=self.atr.update(bar.high, bar.low, bar.close),
         )

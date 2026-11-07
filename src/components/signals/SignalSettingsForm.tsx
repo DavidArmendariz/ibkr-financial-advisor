@@ -173,6 +173,9 @@ export function SignalSettingsForm({ settings, onSave }: Props) {
               <Field label="RSI lower level">{num('rsi_lower')}</Field>
               <Field label="RSI period" hint="bars">{num('rsi_period')}</Field>
             </div>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="ATR period" hint="bars, not a trigger">{num('atr_period')}</Field>
+            </div>
             {allOff && <p className="text-xs text-amber-400">All triggers are off, so no alerts will fire.</p>}
           </section>
 

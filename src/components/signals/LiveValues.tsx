@@ -35,6 +35,7 @@ export function LiveValues({ live, settings, symbol }: { live: SignalLive | null
         <Tile label="BB lower" value={fmtPrice(i?.bb_lower)} />
         <Tile label="Relative volume" value={fmtRatio(i?.rvol)} />
         <Tile label={`RSI ${settings?.rsi_period ?? 14}`} value={fmtPrice(i?.rsi)} />
+        <Tile label={`ATR ${settings?.atr_period ?? 14}`} value={fmtPrice(i?.atr)} />
       </CardContent>
     </Card>
   )

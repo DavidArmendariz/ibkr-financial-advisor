@@ -44,7 +44,7 @@ The post-mortem SHALL use the signal's data plus the bars from later that sessio
 - **THEN** that figure shows as not available
 
 ### Requirement: Post-mortem verdict
-The post-mortem SHALL return a verdict of good, bad, or mixed, with an explanation, and SHALL state that it was written with hindsight. The upward EMA cross, VWAP cross, and VWAP band above signals SHALL be judged as long entries. Relative volume, VWAP band below, RSI above, and RSI below signals SHALL be judged in both directions, because they don't imply one.
+The post-mortem SHALL return a verdict of good, bad, or mixed, with an explanation, and SHALL state that it was written with hindsight. The upward EMA cross, VWAP cross, and VWAP band above signals SHALL be judged as long entries, and the EMA cross down signal as a short entry. Relative volume, VWAP band below, RSI above, and RSI below signals SHALL be judged in both directions, because they don't imply one.
 
 #### Scenario: Upward signal
 - **WHEN** a post-mortem runs on an EMA cross signal
@@ -54,6 +54,9 @@ The post-mortem SHALL return a verdict of good, bad, or mixed, with an explanati
 - **WHEN** a post-mortem runs on a relative volume signal
 - **THEN** the result covers how a long and a short entry would each have done
 
+#### Scenario: Downward EMA cross
+- **WHEN** a post-mortem runs on an EMA cross down signal
+- **THEN** the verdict judges a short entry at the signal's price, and the figures are shown for a short
 ### Requirement: Saved analyses
 The system SHALL save the latest pre-mortem and post-mortem for each signal, with the time, provider, and model, and show them in Signal History after a restart. Running one again SHALL replace the saved one only if the new run succeeds.
 

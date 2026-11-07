@@ -10,6 +10,7 @@ import { SignalHistoryPage } from '@/pages/SignalHistory'
 import { GammaPage } from '@/pages/Gamma'
 import { GlobalMarketsPage } from '@/pages/GlobalMarkets'
 import { MacroPage } from '@/pages/Macro'
+import { SectorRotationPage } from '@/pages/SectorRotation'
 import { TradePlannerPage } from '@/pages/TradePlanner'
 import { CalendarPage } from '@/pages/Calendar'
 import { OrdersPage } from '@/pages/Orders'
@@ -98,6 +99,7 @@ export function Layout({ activeTab, onTabChange, connectionStatus, onDisconnect 
           {activeTab === 'gamma' && <GammaPage />}
           {activeTab === 'macro' && <MacroPage />}
           {activeTab === 'global-markets' && <GlobalMarketsPage />}
+          {activeTab === 'sector-rotation' && <SectorRotationPage />}
           {activeTab === 'calendar' && <CalendarPage onOpenSettings={() => onTabChange('settings')} />}
           {activeTab === 'settings' && <SettingsPage />}
         </main>

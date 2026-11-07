@@ -38,6 +38,13 @@ Built with Electron + React on the frontend and a Python FastAPI backend. The ap
 - The KODEX 200 ETF has its own card beside the KOSPI 200. It tracks the index but updates sooner, so compare percent changes, not prices
 - Delayed data here and on Macro shows how many minutes behind it is, measured from its newest bar
 
+**Sector Rotation**
+- A Relative Rotation Graph of the 11 SPDR sector ETFs and SMH (semiconductors) against SPY. RS-Ratio (horizontal) is how far each one's strength against SPY sits from its recent average, and RS-Momentum (vertical) is whether that's rising. Both centre on 100 over 10 periods, splitting the graph into Leading, Weakening, Lagging, and Improving
+- Each ETF is a trail of its last readings (8 by default, 3 to 20) ending at a labelled point. SMH is in blue, and hovering a point or clicking a table row highlights that ETF
+- Weekly (weeks ending Friday, built from daily bars) by default, or daily. Completed sessions only, fetched once per session: 13 daily bar requests
+- A table below groups the ETFs by quadrant with both readings and how long each has been there
+- The readings are the app's own approximation of the RRG method, so they won't match StockCharts or TradingView exactly. Context only: no alerts
+
 **Signals (SOXL real-time alerts)**
 - Streams 5-second real-time bars for SOXL and combines them into 1-minute bars (timeframe configurable), after warming up from historical data
 - Computes indicators incrementally on each closed bar: session VWAP (from 09:30 ET, or 04:00 ET through after-hours with pre-market), EMA 9 / 21, Bollinger Bands (20, 2σ), and relative volume
@@ -169,6 +176,7 @@ Signal settings are stored in the same file as `SIGNALS_*` keys (for example `SI
 | `SIGNALS_ATR_PERIOD` | `14` (shown and used by the Trade Planner, not a trigger) |
 | `PLANNER_STOP_MULTIPLE` / `PLANNER_TARGET_MULTIPLE` | `1.5` / `3` |
 | `PLANNER_ATR_BASIS` / `PLANNER_RISK_MODE` / `PLANNER_RISK_PERCENT` / `PLANNER_RISK_DOLLARS` | `intraday` / `percent` / `1` / `1000` |
+| `ROTATION_TIMEFRAME` / `ROTATION_TAIL` | `weekly` / `8` (3 to 20), set from the **Sector Rotation** view |
 | `SIGNALS_INCLUDE_PREMARKET` | `false` |
 | `SIGNALS_OPEN_BLACKOUT_MINUTES` / `SIGNALS_CLOSE_BLACKOUT_MINUTES` | `10` / `10` |
 | `SIGNALS_COOLDOWN_MINUTES` | `5` |
@@ -379,6 +387,7 @@ ibkr-financial-advisor/
     │   ├── useChat.ts        # Thread CRUD + WebSocket streaming state
     │   ├── useSignals.ts     # Signals WebSocket: status, live values, history, settings
     │   ├── useMacro.ts       # Polls /api/macro/state every 3 s while the Macro view is open
+    │   ├── useRotation.ts    # Polls /api/rotation every 60 s while the Sector Rotation view is open
     │   ├── useSignalHistory.ts # Pages through saved signals, polling for new ones every 15 s while open
     │   └── useOpenOrders.ts  # Polls /api/orders/open every 15 s while the Orders view is open
     ├── components/
@@ -391,7 +400,8 @@ ibkr-financial-advisor/
     │   ├── orders/           # OrdersTable
     │   ├── chat/             # Session list, chat window, markdown + chart rendering, risk profile select
     │   ├── signals/          # Status cards, live values, signal table, settings form
-    │   └── macro/            # Section layout, indicator and index cards, sparkline
+    │   ├── macro/            # Section layout, indicator and index cards, sparkline
+    │   └── rotation/         # Relative Rotation Graph (SVG) and quadrant table
     └── pages/
         ├── Dashboard.tsx
         ├── Orders.tsx
@@ -434,6 +444,8 @@ ibkr-financial-advisor/
 | `GET` | `/api/calendar` | Upcoming events for 30 days, each source's status, and calendar settings with key hints only |
 | `PUT` | `/api/calendar/settings` | Update calendar keys, watchlist or alert switches |
 | `GET` | `/api/macro/state` | `connected` and one entry per macro indicator: `value`, `previous_close`, `change`, `change_pct` / `change_bp`, `freshness` (`live` / `delayed` / `closed`, or `daily` for the TRM), `contract`, `contract_month`, `valid_from` / `valid_to` (TRM), `updated_at`, `stale`, `error`, `sparkline`. Also `sentiment`: `score`, `band`, `as_of`, `components`, `history`, `stale` |
+| `GET` | `/api/rotation` | `connected`, `stale`, `last_session`, `benchmark` (SPY and its `error`), `lookback`, `settings`, and per ETF `symbol`, `name`, `error`, and `weekly` / `daily`, each with its last 20 `points` (`time`, `ratio`, `momentum`, `quadrant`) and `periods` in the current quadrant |
+| `PUT` | `/api/rotation/settings` | Update `timeframe` (`weekly` / `daily`) or `tail` (3 to 20) |
 
 ---
 

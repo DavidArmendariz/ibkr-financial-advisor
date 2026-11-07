@@ -11,7 +11,8 @@ from backend.gamma.service import gamma_service
 from backend.global_markets.service import global_markets_service
 from backend.macro.service import macro_service
 from backend.planner.service import planner_service
-from backend.routers import calendar, connection, portfolio, orders, chat, gamma, global_markets, macro, planner, settings, signals
+from backend.rotation.service import rotation_service
+from backend.routers import calendar, connection, portfolio, orders, chat, gamma, global_markets, macro, planner, rotation, settings, signals
 from backend.services import ibkr_service
 from backend.services.ibkr_service import ibkr
 from backend.signals.service import signal_service
@@ -31,12 +32,14 @@ async def lifespan(app: FastAPI):
     await gamma_service.start()
     await macro_service.start()
     await global_markets_service.start()
+    await rotation_service.start()
     calendar_service.broadcast = signal_service._broadcast
     await calendar_service.start()
     yield
     await calendar_service.stop()
     planner_service.stop()
     await global_markets_service.stop()
+    await rotation_service.stop()
     await macro_service.stop()
     await gamma_service.stop()
     fills.cancel()
@@ -67,6 +70,7 @@ app.include_router(planner.router, prefix="/api/planner", tags=["planner"])
 app.include_router(gamma.router, prefix="/api/gamma", tags=["gamma"])
 app.include_router(macro.router, prefix="/api/macro", tags=["macro"])
 app.include_router(global_markets.router, prefix="/api/global-markets", tags=["global-markets"])
+app.include_router(rotation.router, prefix="/api/rotation", tags=["rotation"])
 app.include_router(calendar.router, prefix="/api/calendar", tags=["calendar"])
 
 

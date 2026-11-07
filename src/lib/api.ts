@@ -14,6 +14,8 @@ import type {
   MacroState,
   PlannerSettings,
   PlannerState,
+  RotationSettings,
+  RotationState,
   TradePlan,
   OHLCBar,
   OpenOrdersState,
@@ -172,6 +174,11 @@ export const updateGammaSettings = (values: Partial<GammaSettings>) =>
 // ── Macro ────────────────────────────────────────────────────────────────────
 
 export const getGlobalMarkets = () => http.get<GlobalMarketsState>('/api/global-markets').then((r) => r.data)
+
+export const getRotation = () => http.get<RotationState>('/api/rotation').then((r) => r.data)
+
+export const updateRotationSettings = (values: Partial<RotationSettings>) =>
+  http.put<RotationSettings>('/api/rotation/settings', values).then((r) => r.data)
 
 export const getPlanner = () => http.get<PlannerState>('/api/planner', { timeout: 60_000 }).then((r) => r.data)
 

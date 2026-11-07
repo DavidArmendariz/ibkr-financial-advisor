@@ -112,7 +112,7 @@ export interface OpenOrdersState {
   orders: OpenOrder[]
 }
 
-export type AppTab = 'dashboard' | 'orders' | 'chat' | 'signals' | 'signal-history' | 'trade-planner' | 'gamma' | 'macro' | 'global-markets' | 'calendar' | 'settings'
+export type AppTab = 'dashboard' | 'orders' | 'chat' | 'signals' | 'signal-history' | 'trade-planner' | 'gamma' | 'macro' | 'global-markets' | 'sector-rotation' | 'calendar' | 'settings'
 
 export type RiskProfile = 'conservative' | 'moderate' | 'aggressive'
 
@@ -560,3 +560,44 @@ export type TradePlan =
       exceeds_funds: boolean
     }
   | { ok: false; reason: string }
+
+// ── Sector rotation ──────────────────────────────────────────────────────────
+
+export type RotationQuadrant = 'Leading' | 'Weakening' | 'Lagging' | 'Improving'
+export type RotationTimeframe = 'weekly' | 'daily'
+
+export interface RotationPoint {
+  time: number // unix seconds, midnight UTC of the session
+  ratio: number
+  momentum: number
+  quadrant: RotationQuadrant
+}
+
+export interface RotationSeries {
+  points: RotationPoint[]
+  periods: number
+}
+
+export interface RotationEtf {
+  symbol: string
+  name: string
+  error: string | null
+  weekly: RotationSeries
+  daily: RotationSeries
+}
+
+export interface RotationSettings {
+  timeframe: RotationTimeframe
+  tail: number
+}
+
+export interface RotationState {
+  connected: boolean
+  stale: boolean
+  fetched_at: string | null
+  last_session: number | null
+  benchmark: { symbol: string; error: string | null }
+  lookback: number
+  settings: RotationSettings
+  etfs: RotationEtf[]
+}

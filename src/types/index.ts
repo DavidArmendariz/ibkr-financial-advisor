@@ -677,3 +677,120 @@ export interface FundamentalsLookup {
 }
 
 export type FundamentalsErrorCode = 'no_key' | 'not_found' | 'bad_ticker' | 'rate_limited' | 'finnhub' | 'no_provider' | 'error'
+
+// ── Order entry ──────────────────────────────────────────────────────────────
+
+export type TradeDirection = 'long' | 'short'
+export type TradingSessionName = 'pre' | 'regular' | 'after' | 'overnight' | 'closed'
+
+export interface TradingSettings {
+  live_enabled: boolean
+  max_order_value: number
+  gap_cap_percent: number
+}
+
+export interface OrderSpecView {
+  role: 'entry' | 'stop' | 'target' | 'exit'
+  action: 'BUY' | 'SELL'
+  order_type: 'LMT' | 'STP LMT'
+  quantity: number
+  limit_price: number
+  stop_price: number | null
+  exchange: 'SMART' | 'OVERNIGHT'
+  tif: string
+  outside_rth: boolean
+  note: string
+}
+
+export interface WhatIf {
+  available: boolean
+  note?: string
+  commission?: number | null
+  min_commission?: number | null
+  max_commission?: number | null
+  init_margin_change?: number | null
+  warning?: string | null
+}
+
+export interface PlaceReview {
+  kind: 'place'
+  token: string
+  expires_at: string
+  mode: 'live' | 'paper'
+  account: string
+  session: TradingSessionName
+  plan: { symbol: PlannerSymbol; direction: TradeDirection; shares: number; entry: number; stop: number; target: number }
+  orders: OrderSpecView[]
+  after_fill: OrderSpecView[]
+  watched_stop: number | null
+  risk: number
+  reward: number
+  value: number
+  what_if: WhatIf
+  gap_cap_percent: number
+}
+
+export interface ModifyReview {
+  kind: 'modify'
+  token: string
+  expires_at: string
+  mode: 'live' | 'paper'
+  account: string
+  bracket_id: string
+  role: 'stop' | 'target'
+  from: number
+  to: number
+}
+
+export interface CancelReview {
+  kind: 'cancel'
+  token: string
+  expires_at: string
+  mode: 'live' | 'paper'
+  account: string
+  bracket_id: string
+  warning: string | null
+}
+
+export type OrderReview = PlaceReview | ModifyReview | CancelReview
+
+export interface BracketOrderInfo {
+  order_id: number
+  perm_id: number | null
+  status: string
+  type: string
+  action: string
+  price: number
+  limit: number
+  exchange: string
+  message: string | null
+}
+
+export interface TradeBracket {
+  id: string
+  created_at: string
+  updated_at: string
+  mode: 'live' | 'paper'
+  account: string
+  symbol: PlannerSymbol
+  direction: TradeDirection
+  shares: number
+  entry: number
+  stop: number
+  target: number
+  session: TradingSessionName
+  state: 'working' | 'open' | 'closed' | 'cancelled' | 'rejected'
+  orders: Record<string, BracketOrderInfo>
+  warning: string | null
+  watched_stop: { level: number; active: boolean; exit_action: string; triggered_at: string | null; gaps: [string, string | null][] } | null
+}
+
+export interface TradingState {
+  connected: boolean
+  mode: 'live' | 'paper' | null
+  account: string | null
+  session: TradingSessionName
+  trading_session_open: boolean
+  settings: TradingSettings
+  brackets: TradeBracket[]
+}

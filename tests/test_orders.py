@@ -148,10 +148,18 @@ async def test_endpoint_requires_connection(monkeypatch):
     assert err.value.status_code == 503
 
 
-def test_backend_never_writes_orders():
+def test_only_the_broker_writes_orders():
+    # Order entry sends orders from one module, behind a confirmed review; nothing else may.
     backend = Path(__file__).parent.parent / "backend"
-    offenders = [str(p) for p in backend.rglob("*.py") if ORDER_WRITES.search(p.read_text())]
+    broker = backend / "trading" / "broker.py"
+    offenders = [str(p) for p in backend.rglob("*.py") if p != broker and ORDER_WRITES.search(p.read_text())]
     assert offenders == []
+    assert ORDER_WRITES.search(broker.read_text())
+
+
+def test_the_main_connection_stays_read_only():
+    source = (Path(__file__).parent.parent / "backend" / "services" / "ibkr_service.py").read_text()
+    assert "readonly=True" in source and "readonly=False" not in source
 
 
 def test_order_write_scan_catches_a_placement():

@@ -35,7 +35,7 @@ function describeCalendar({ alert, event }) {
 
 // The main process subscribes itself (not the renderer) so alerts still arrive
 // while the window is closed and the app lives in the dock.
-function startSignalNotifications({ url, onClick, onCalendarClick }) {
+function startSignalNotifications({ url, onClick, onCalendarClick, onTradingClick }) {
   let socket = null
   let stopped = false
   let delay = 1000
@@ -61,6 +61,16 @@ function startSignalNotifications({ url, onClick, onCalendarClick }) {
     notification.show()
   }
 
+  // Order fills, overnight stop exits, and unprotected positions.
+  const showTrading = ({ title, body }) => {
+    if (!Notification.isSupported() || !title) return
+    const notification = new Notification({ title, body: body || '' })
+    live.add(notification)
+    notification.on('click', () => onTradingClick?.())
+    notification.on('close', () => live.delete(notification))
+    notification.show()
+  }
+
   const connect = () => {
     if (stopped) return
     socket = new WebSocket(url)
@@ -76,6 +86,7 @@ function startSignalNotifications({ url, onClick, onCalendarClick }) {
       }
       if (event.type === 'signal' && event.notify) show(event.signal)
       if (event.type === 'calendar') showCalendar(event)
+      if (event.type === 'trading') showTrading(event)
     })
     socket.on('close', () => {
       if (stopped) return

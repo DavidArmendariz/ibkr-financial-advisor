@@ -96,7 +96,7 @@ export function Layout({ activeTab, onTabChange, connectionStatus, onDisconnect 
           {activeTab === 'chat' && <ChatPage onOpenSettings={() => onTabChange('settings')} />}
           {activeTab === 'signals' && <SignalsPage />}
           {activeTab === 'signal-history' && <SignalHistoryPage />}
-          {activeTab === 'trade-planner' && <TradePlannerPage />}
+          {activeTab === 'trade-planner' && <TradePlannerPage onOpenSettings={() => onTabChange('settings')} />}
           {activeTab === 'gamma' && <GammaPage />}
           {activeTab === 'macro' && <MacroPage />}
           {activeTab === 'global-markets' && <GlobalMarketsPage />}

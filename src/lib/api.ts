@@ -16,6 +16,12 @@ import type {
   MacroState,
   PlannerSettings,
   OHLCBar,
+  OrderReview,
+  PlaceReview,
+  TradeBracket,
+  TradeDirection,
+  TradingSettings,
+  TradingState,
   PlannerState,
   RotationSettings,
   RotationState,
@@ -194,6 +200,26 @@ export const getNewsArticle = (provider: string, articleId: string) =>
   http
     .get<{ text: string | null }>(`/api/fundamentals/article/${encodeURIComponent(provider)}/${encodeURIComponent(articleId)}`, { timeout: 30_000 })
     .then((r) => r.data)
+
+export const getTradingState = () => http.get<TradingState>('/api/trading/state').then((r) => r.data)
+
+export const getTradingBars = (symbol: string) =>
+  http.get<{ symbol: string; bars: OHLCBar[] }>(`/api/trading/bars/${symbol}`, { timeout: 30_000 }).then((r) => r.data.bars)
+
+export const reviewOrder = (plan: { symbol: string; direction: TradeDirection; shares: number; entry: number; stop: number; target: number }) =>
+  http.post<PlaceReview>('/api/trading/review', plan, { timeout: 45_000 }).then((r) => r.data)
+
+export const confirmOrder = (token: string) =>
+  http.post<TradeBracket>('/api/trading/confirm', { token }, { timeout: 45_000 }).then((r) => r.data)
+
+export const reviewModify = (bracketId: string, role: 'stop' | 'target', price: number) =>
+  http.post<OrderReview>(`/api/trading/brackets/${bracketId}/review-modify`, { role, price }).then((r) => r.data)
+
+export const reviewCancel = (bracketId: string) =>
+  http.post<OrderReview>(`/api/trading/brackets/${bracketId}/review-cancel`).then((r) => r.data)
+
+export const updateTradingSettings = (values: Partial<TradingSettings>) =>
+  http.put<TradingSettings>('/api/trading/settings', values).then((r) => r.data)
 
 export const getPlanner = () => http.get<PlannerState>('/api/planner', { timeout: 60_000 }).then((r) => r.data)
 

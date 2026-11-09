@@ -1,6 +1,6 @@
 # DeltaAdvisor
 
-Local-first macOS desktop app (Electron + React) with a Python FastAPI backend, connected to Interactive Brokers through TWS / IB Gateway. Features: portfolio dashboard, open orders view, AI Advisor chat, SOXL real-time signal alerts, SOXL gamma exposure, macro indicators, Asia & Europe markets, sector rotation, stock fundamentals, an ATR trade planner. **It never places orders.**
+Local-first macOS desktop app (Electron + React) with a Python FastAPI backend, connected to Interactive Brokers through TWS / IB Gateway. Features: portfolio dashboard, open orders view, AI Advisor chat, SOXL real-time signal alerts, SOXL gamma exposure, macro indicators, Asia & Europe markets, sector rotation, stock fundamentals, an ATR trade planner with order entry. **It places orders only from the Trade Planner, after the user confirms a review.**
 
 ## How changes are made: OpenSpec
 
@@ -19,7 +19,7 @@ Decisions made before OpenSpec are in [docs/decisions.md](docs/decisions.md); ne
 ## Layout
 
 - `electron/` — main process (`main.cjs`: spawns the packaged backend, quit/crash handling, dev Dock icon), `preload.cjs` (contextBridge), `signal-notifications.cjs` (native notifications from the signals WebSocket).
-- `backend/` — FastAPI app. `services/ibkr_service.py` holds the single shared `ib_async` connection and the reconnect supervisor. `signals/` (pipeline, indicators, rules, LLM filter, replay CLI), `gamma/` (exposure calc + chain fetching), `planner/` (ATR trade planner: calculates only, never orders), `macro/` (macro indicator quotes + official USD/COP rate), `global_markets/` (Asia & Europe indexes and chip stocks, bars only), `rotation/` (sector ETFs against SPY on a Relative Rotation Graph, daily bars once per session), `fundamentals/` (one stock's multiples from Finnhub, IBKR and Finnhub news, AI summary), `calendar_events/` (economic and earnings events, event alerts), `routers/` (one per feature), `database.py` (SQLModel tables).
+- `backend/` — FastAPI app. `services/ibkr_service.py` holds the single shared `ib_async` connection and the reconnect supervisor. `signals/` (pipeline, indicators, rules, LLM filter, replay CLI), `gamma/` (exposure calc + chain fetching), `planner/` (ATR trade planner calculations), `trading/` (order entry: sessions, order building, a separate order-capable session, `broker.py` as the only module that sends orders, the overnight stop watcher), `macro/` (macro indicator quotes + official USD/COP rate), `global_markets/` (Asia & Europe indexes and chip stocks, bars only), `rotation/` (sector ETFs against SPY on a Relative Rotation Graph, daily bars once per session), `fundamentals/` (one stock's multiples from Finnhub, IBKR and Finnhub news, AI summary), `calendar_events/` (economic and earnings events, event alerts), `routers/` (one per feature), `database.py` (SQLModel tables).
 - `src/` — React 18 renderer. Views are `pages/*.tsx`, switched in `components/Layout.tsx` via the `AppTab` union in `types/index.ts` and the list in `components/Sidebar.tsx`. Each feature has a `hooks/use*.ts` and components under `components/<feature>/`.
 - `tests/` — pytest suite (backend only).
 
@@ -46,7 +46,7 @@ Before calling work done: pytest, tsc and vite build pass, and UI changes are lo
 - Comments explain *why*, sparingly. No docstrings. Match the surrounding style.
 - Settings are persisted to `.env` with `backend.config.save_env_values` (owner-only file), one prefix per feature (`SIGNALS_*`, `GAMMA_*`, `CALENDAR_*`, `PLANNER_*`, `ROTATION_*`), and applied live without a restart.
 - API keys stay in the backend. The renderer only ever sees "set / …abcd hint". All LLM calls happen in the backend.
-- IBKR access is read-only (`readonly=True`). Never add order placement. Orders are only read, and the Orders view is tested with TWS's Read-Only API setting off, so the app's code is the safeguard (`tests/test_orders.py` guards it).
+- The main IBKR connection is read-only (`readonly=True`) and must stay so. Orders go only through `backend/trading/broker.py`, on a separate session (client ID + 20), and only for a confirmed, unexpired review token; `tests/test_orders.py` fails if order calls appear anywhere else. Live orders also need `TRADING_LIVE_ENABLED`. The Orders view stays read-only. Don't add order placement elsewhere (signals, analyses, other views).
 - Auto-connect only ever targets the **paper** port; live always needs an explicit click.
 - Time math is in US/Eastern via `zoneinfo` (`backend/signals/sessions.py: ET`). Trading hours come from IBKR `liquidHours` (handles half-days).
 - Charts: palette and mark rules from the dataviz skill; series colors are the validated dark-mode categorical slots (`#3987e5`, `#d95926`, `#199e70`, `#c98500`, …).
@@ -66,6 +66,7 @@ Before calling work done: pytest, tsc and vite build pass, and UI changes are lo
 - Foreign quotes don't stream on this account: `reqMktData` returns nothing and no error, even with the market open, so Asia & Europe runs on historical bars.
 - For foreign stocks, naming `IBIS`, `SBF` or `TSEJ` is refused (162) while `SMART` works. `SMART` isn't the exchange's own record: it misses Amsterdam's closing auction (name `AEB`) and adds evening off-exchange trades in Tokyo. KRX stocks use `005930`-style symbols, and the KOSPI composite isn't listed (`K200` is).
 - IBKR refuses fundamentals on this account (10358, needs a paid subscription), but news works: `reqNewsProviders` / `reqHistoricalNews` (headlines start with a `{A:…}` prefix) and `reqNewsArticle`.
+- Orders outside regular hours (paper tests, Nov 8 2026): on SMART, a plain STP ignores outside-RTH (2109), while STP LMT and LMT honour it. The OVERNIGHT venue rejects STP and STP LMT (387); only LMT works. TWS cancels directed OVERNIGHT orders (10329) unless API → Precautions → "Bypass Redirect Order warning for Stock API Orders" is ticked. TWS's price percentage precaution (3% on paper) rejects stop-limits further away (163). OCA groups cancel across SMART and OVERNIGHT, SOXL/SOXS bid/ask stream on OVERNIGHT, and shorting SOXS overnight fills. TWS may not send the final status of an OCA-cancelled order (202 with no reason), so the broker reconciles against open orders after a close. A sell limit below the market fills at once, so it can't act as a stop. ib_async 2.1 has no include-overnight flag for SMART orders.
 - One-off scripts must use their own client ID (the app uses `IBKR_CLIENT_ID`, default 1; replay uses +50).
 
 ## Dev gotchas

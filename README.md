@@ -2,7 +2,7 @@
 
 A local-first desktop application for portfolio monitoring, AI-powered financial advising, and real-time trade signal alerts, connected directly to Interactive Brokers via TWS or IB Gateway.
 
-Built with Electron + React on the frontend and a Python FastAPI backend. The app runs entirely on your machine; the only data that leaves it is what the AI features send to the AI provider you choose (or nothing, with a local model). It never places orders.
+Built with Electron + React on the frontend and a Python FastAPI backend. The app runs entirely on your machine; the only data that leaves it is what the AI features send to the AI provider you choose (or nothing, with a local model). It places orders only from the Trade Planner, after you confirm a review.
 
 ---
 
@@ -30,7 +30,13 @@ Built with Electron + React on the frontend and a Python FastAPI backend. The ap
 **Trade Planner**
 - Wilder's ATR for SOXL and SOXS, on the Signals timeframe and over 14 sessions
 - For a long trade in either, it calculates a stop and target from ATR multiples and the shares that risk a set amount (a percent of net liquidation, or dollars), with a warning above available funds
-- Shows the bracket values to enter in TWS, with a Copy button. It never places orders
+- Long or short. A chart (with extended hours) shows draggable **entry, stop, and take profit** lines; dragging updates the share count from your risk setting
+- **Order entry:** Review shows the account (PAPER or LIVE), every order IBKR will receive and in which session, risk and reward, and IBKR's commission and margin preview. Nothing is sent until you confirm, within 2 minutes. Working brackets stay on the chart: drag a stop or target, or cancel, through another review
+- How the app protects a position depends on the session (tested on paper):
+  - **4:00–20:00 ET:** a native IBKR bracket: limit entry, stop-limit stop, and limit take profit, all active outside regular hours and cancelling each other. A plain stop isn't used: IBKR ignores "outside regular hours" on it
+  - **20:00–3:50 ET (overnight):** IBKR accepts only limit orders there, so the take profit rests on the overnight venue and **the app watches the stop**. When the bid (long) or ask (short) crosses it, the app cancels the take profit, sends a limit the gap cap (1%) past the price, and notifies you, again if it hasn't filled in a minute. **This stop only works while the app and TWS are running and connected**; gaps in watching are shown. A position still open at 20:00 gets the same treatment, and the stop-limit at IBKR is ready again for 4:00
+  - TWS settings this needs (Global Configuration): under **API → Precautions**, tick **Bypass Redirect Order warning for Stock API Orders**, or TWS cancels every overnight order (10329), and keep **Bypass Order Precautions for API Orders** unticked so TWS's own limits still apply. TWS's **price percentage** precaution (Presets → Stocks → Precautionary Settings, 3% on paper) refuses a stop-limit further than that from the market (163): raise it to fit your stops, or the app warns that the position has no stop
+- Safeguards: live orders are refused until **Allow live orders** is on in Settings (off by default), every order is capped by value ($25,000 by default), a live review is red and names the account, and orders only ever come from this view. The bracket values can still be copied to enter in TWS by hand
 
 **Asia & Europe**
 - Indexes (Nikkei 225, KOSPI 200, AEX, Euro Stoxx 50), the KODEX 200 ETF, and chip stocks on their home markets (Samsung, SK Hynix, TSMC, Tokyo Electron, Advantest, Disco, Renesas, ASML, ASM International, BE Semiconductor, Infineon, STMicroelectronics), in local currency against the previous close. Indexes show as cards with sparklines, and stocks in one table
@@ -183,6 +189,7 @@ Signal settings are stored in the same file as `SIGNALS_*` keys (for example `SI
 | `SIGNALS_ATR_PERIOD` | `14` (shown and used by the Trade Planner, not a trigger) |
 | `PLANNER_STOP_MULTIPLE` / `PLANNER_TARGET_MULTIPLE` | `1.5` / `3` |
 | `PLANNER_ATR_BASIS` / `PLANNER_RISK_MODE` / `PLANNER_RISK_PERCENT` / `PLANNER_RISK_DOLLARS` | `intraday` / `percent` / `1` / `1000` |
+| `TRADING_LIVE_ENABLED` / `TRADING_MAX_ORDER_VALUE` / `TRADING_GAP_CAP_PERCENT` | `false` / `25000` / `1`, set from **Settings** |
 | `ROTATION_TIMEFRAME` / `ROTATION_TAIL` | `weekly` / `8` (3 to 20), set from the **Sector Rotation** view |
 | `SIGNALS_INCLUDE_PREMARKET` | `false` |
 | `SIGNALS_OPEN_BLACKOUT_MINUTES` / `SIGNALS_CLOSE_BLACKOUT_MINUTES` | `10` / `10` |
@@ -208,7 +215,7 @@ The TWS API socket is **off by default**. While it's off, TWS can be running and
    |---|---|---|
    | **Enable ActiveX and Socket Clients** | ✅ on | Opens the API socket; required |
    | **Socket port** | `7497` (paper) / `7496` (live) | Must match `IBKR_PAPER_PORT` / `IBKR_LIVE_PORT` in `.env`. Scroll down in the panel to find it |
-   | **Read-Only API** | ⬜ off to use **Orders** | The Orders view is tested with this off; with it on, TWS may refuse to show orders. Everything else works either way. Off removes TWS's own block on order placement, so the app's code is then the only safeguard. The app never places, changes, or cancels orders |
+   | **Read-Only API** | ⬜ off to use **Orders** and to place orders | The Orders view is tested with this off; with it on, TWS may refuse to show orders, and the Trade Planner can't place them. Off removes TWS's own block on order placement: the app places orders only from the Trade Planner after you confirm a review, and live orders also need **Allow live orders** in Settings |
    | **Allow connections from localhost only** | ✅ on | Keeps the API off the network. Or add `127.0.0.1` to **Trusted IPs** |
 
    Further down the panel, **Use "$LEDGER" prefix for per-currency keys** can be on or off; the app handles both.
@@ -458,6 +465,12 @@ ibkr-financial-advisor/
 | `GET` | `/api/fundamentals/:ticker` | One stock's profile, `multiples` (value, peer and 5-year medians, cheaper flags), `quality`, `peers`, `ratings`, merged `news`, `news_notes`, `fetched_at`, and any saved `analysis`; `?refresh=true` bypasses the hour cache. Errors carry a `code` (`no_key`, `not_found`, `bad_ticker`, `rate_limited`, …) |
 | `POST` | `/api/fundamentals/:ticker/analysis` | Write and save the AI summary from that stock's public figures and headlines |
 | `GET` | `/api/fundamentals/article/:provider/:article_id` | An IBKR news article as plain text |
+| `GET` | `/api/trading/state` | Connection, mode, account, current session, trading settings, and recent brackets placed from the app (orders, status, warnings, watched stop and its gaps) |
+| `GET` | `/api/trading/bars/:symbol` | Two days of 1-minute SOXL or SOXS bars including extended hours, for the order chart |
+| `POST` | `/api/trading/review` | Build the orders for `{symbol, direction, shares, entry, stop, target}` in the current session, with IBKR's what-if preview; returns a single-use `token` valid for 2 minutes. Sends nothing |
+| `POST` | `/api/trading/confirm` | `{token}`: send, modify, or cancel exactly what that review showed |
+| `POST` | `/api/trading/brackets/:id/review-modify` / `review-cancel` | Review moving a working stop or take profit, or cancelling the bracket |
+| `PUT` | `/api/trading/settings` | `live_enabled`, `max_order_value`, `gap_cap_percent` |
 
 ---
 
@@ -501,6 +514,7 @@ Server → client only. On connect the server sends the full state, then events 
 - **Paper vs Live** — the app only auto-connects to paper (`7497`). Connecting to live (`7496`) always takes an explicit click. Never use live credentials for testing.
 - **API key security** — API keys live in `.env` (owner-only permissions) and are only read by the local Python process. The Settings screen can write a new key, but the backend never sends a stored key back to the renderer.
 - **What leaves your machine** — portfolio data, chat history, and signal history are stored locally. Each AI Advisor message sends the conversation plus a snapshot of your positions, P&L, and balances to the selected AI provider. With the LLM filter on, each signal sends its SOXL price, indicator values, and last 20 bars (market data only, nothing about your account). With OpenRouter, requests also pass through OpenRouter to the model's provider; its privacy settings can restrict routing to providers that don't train on or retain data. A local model (Ollama, LM Studio) keeps everything on your machine.
-- **Signals are alerts, not advice** — the rules are mechanical and the LLM filter only judges each precomputed snapshot. The app places no orders.
+- **Signals are alerts, not advice** — the rules are mechanical and the LLM filter only judges each precomputed snapshot. Signals never place orders.
+- **Orders** — orders are sent only from the Trade Planner, after you confirm a review, through a separate API session (client ID + 20); the main connection stays read-only. Keep TWS's order precautions on, and answer **No** if TWS asks to bypass them for API orders. An app-watched overnight stop protects you only while the app and TWS are running.
 - **Model IDs** — the OpenAI-compatible model must be an ID the endpoint lists (e.g. `vendor/model-name` on OpenRouter). OpenRouter lists models without checking the key, so a wrong OpenRouter key only shows up as an error on the first chat message.
 - **Multiple IB clients** — if another app (e.g. the TWS API demo) is connected with `clientId=1`, change `IBKR_CLIENT_ID` in `.env` to avoid conflicts.

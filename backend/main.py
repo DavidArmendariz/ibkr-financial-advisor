@@ -12,7 +12,8 @@ from backend.global_markets.service import global_markets_service
 from backend.macro.service import macro_service
 from backend.planner.service import planner_service
 from backend.rotation.service import rotation_service
-from backend.routers import calendar, connection, portfolio, orders, chat, fundamentals, gamma, global_markets, macro, planner, rotation, settings, signals
+from backend.trading import service as trading
+from backend.routers import calendar, connection, portfolio, orders, chat, fundamentals, gamma, global_markets, macro, planner, rotation, settings, signals, trading as trading_router
 from backend.services import ibkr_service
 from backend.services.ibkr_service import ibkr
 from backend.signals.service import signal_service
@@ -34,9 +35,13 @@ async def lifespan(app: FastAPI):
     await global_markets_service.start()
     await rotation_service.start()
     calendar_service.broadcast = signal_service._broadcast
+    trading.broker.notify = lambda title, body: signal_service._broadcast({"type": "trading", "title": title, "body": body})
+    trading.watcher.start()
     await calendar_service.start()
     yield
     await calendar_service.stop()
+    trading.watcher.stop()
+    trading.trading_session.close()
     planner_service.stop()
     await global_markets_service.stop()
     await rotation_service.stop()
@@ -72,6 +77,7 @@ app.include_router(macro.router, prefix="/api/macro", tags=["macro"])
 app.include_router(global_markets.router, prefix="/api/global-markets", tags=["global-markets"])
 app.include_router(rotation.router, prefix="/api/rotation", tags=["rotation"])
 app.include_router(fundamentals.router, prefix="/api/fundamentals", tags=["fundamentals"])
+app.include_router(trading_router.router, prefix="/api/trading", tags=["trading"])
 app.include_router(calendar.router, prefix="/api/calendar", tags=["calendar"])
 
 

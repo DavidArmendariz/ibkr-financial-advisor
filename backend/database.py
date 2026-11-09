@@ -52,6 +52,35 @@ class FundamentalsAnalysis(SQLModel, table=True):
     result: str  # JSON
 
 
+class TradeBracket(SQLModel, table=True):
+    id: str = Field(primary_key=True, max_length=40)
+    created_at: datetime
+    mode: str = Field(index=True, max_length=10)  # "live" | "paper"
+    account: str = Field(max_length=20)
+    symbol: str = Field(max_length=10)
+    direction: str = Field(max_length=5)  # "long" | "short"
+    shares: int
+    entry: float
+    stop: float
+    target: float
+    session: str = Field(max_length=10)  # session it was placed in
+    state: str = Field(index=True, max_length=12)  # working | open | closed | cancelled | rejected
+    orders: str = "{}"  # JSON: role -> {order_id, perm_id, status, price, exchange, message}
+    warning: Optional[str] = None  # e.g. the position is unprotected
+    updated_at: datetime
+
+
+class WatchedStop(SQLModel, table=True):
+    bracket_id: str = Field(primary_key=True, max_length=40)
+    level: float
+    exit_action: str = Field(max_length=4)  # SELL closes a long, BUY closes a short
+    gap_cap_percent: float
+    active: bool = True
+    triggered_at: Optional[datetime] = None
+    exit_order_id: Optional[int] = None
+    gaps: str = "[]"  # JSON: [[start, end-or-null], ...] times it wasn't watched overnight
+
+
 class SignalOutcome(SQLModel, table=True):
     signal_id: str = Field(primary_key=True)
     status: str = Field(max_length=20)  # "measured" | "not_available"

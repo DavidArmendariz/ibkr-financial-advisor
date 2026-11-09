@@ -12,7 +12,7 @@ from backend.global_markets.service import global_markets_service
 from backend.macro.service import macro_service
 from backend.planner.service import planner_service
 from backend.rotation.service import rotation_service
-from backend.routers import calendar, connection, portfolio, orders, chat, gamma, global_markets, macro, planner, rotation, settings, signals
+from backend.routers import calendar, connection, portfolio, orders, chat, fundamentals, gamma, global_markets, macro, planner, rotation, settings, signals
 from backend.services import ibkr_service
 from backend.services.ibkr_service import ibkr
 from backend.signals.service import signal_service
@@ -71,6 +71,7 @@ app.include_router(gamma.router, prefix="/api/gamma", tags=["gamma"])
 app.include_router(macro.router, prefix="/api/macro", tags=["macro"])
 app.include_router(global_markets.router, prefix="/api/global-markets", tags=["global-markets"])
 app.include_router(rotation.router, prefix="/api/rotation", tags=["rotation"])
+app.include_router(fundamentals.router, prefix="/api/fundamentals", tags=["fundamentals"])
 app.include_router(calendar.router, prefix="/api/calendar", tags=["calendar"])
 
 

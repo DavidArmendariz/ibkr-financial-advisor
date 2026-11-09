@@ -43,6 +43,15 @@ class SignalAnalysis(SQLModel, table=True):
     result: str  # JSON
 
 
+class FundamentalsAnalysis(SQLModel, table=True):
+    ticker: str = Field(primary_key=True, max_length=10)
+    created_at: datetime
+    data_time: datetime  # when the figures it was written from were fetched
+    provider: str = Field(max_length=40)
+    model: str = Field(max_length=120)
+    result: str  # JSON
+
+
 class SignalOutcome(SQLModel, table=True):
     signal_id: str = Field(primary_key=True)
     status: str = Field(max_length=20)  # "measured" | "not_available"

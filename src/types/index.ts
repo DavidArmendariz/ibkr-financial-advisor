@@ -112,7 +112,7 @@ export interface OpenOrdersState {
   orders: OpenOrder[]
 }
 
-export type AppTab = 'dashboard' | 'orders' | 'chat' | 'signals' | 'signal-history' | 'trade-planner' | 'gamma' | 'macro' | 'global-markets' | 'sector-rotation' | 'calendar' | 'settings'
+export type AppTab = 'dashboard' | 'orders' | 'chat' | 'signals' | 'signal-history' | 'trade-planner' | 'gamma' | 'macro' | 'global-markets' | 'sector-rotation' | 'fundamentals' | 'calendar' | 'settings'
 
 export type RiskProfile = 'conservative' | 'moderate' | 'aggressive'
 
@@ -602,3 +602,78 @@ export interface RotationState {
   settings: RotationSettings
   etfs: RotationEtf[]
 }
+
+// ── Fundamentals ─────────────────────────────────────────────────────────────
+
+export interface FundamentalsMultiple {
+  key: string
+  label: string
+  value: number | null
+  status: 'ok' | 'missing' | 'not_meaningful'
+  peer_median: number | null
+  peer_count: number
+  cheaper_than_peers: boolean | null
+  has_history: boolean
+  history_median: number | null
+  history_years: number
+  cheaper_than_history: boolean | null
+}
+
+export interface FundamentalsQuality {
+  key: string
+  label: string
+  value: number | null
+  unit: '%' | 'x'
+}
+
+export interface AnalystRatingMonth {
+  period: string
+  strong_buy: number
+  buy: number
+  hold: number
+  sell: number
+  strong_sell: number
+  total: number
+  buy_share: number | null
+}
+
+export interface FundamentalsNews {
+  time: number // unix seconds
+  source: string
+  headline: string
+  url: string | null
+  provider: string // 'finnhub' or an IBKR provider code
+  article_id: string | null
+}
+
+export interface FundamentalsWriteUp {
+  created_at: string
+  data_time: string
+  provider: string
+  model: string
+  bull_case: string
+  bear_case: string
+  valuation_view: string
+  watch: string
+}
+
+export interface FundamentalsLookup {
+  ticker: string
+  name: string | null
+  industry: string | null
+  exchange: string | null
+  currency: string | null
+  price: number | null
+  change_pct: number | null
+  market_cap_millions: number | null
+  multiples: FundamentalsMultiple[]
+  quality: FundamentalsQuality[]
+  peers: string[]
+  ratings: { latest: AnalystRatingMonth; previous: AnalystRatingMonth | null } | null
+  news: FundamentalsNews[]
+  news_notes: string[]
+  fetched_at: string
+  analysis: FundamentalsWriteUp | null
+}
+
+export type FundamentalsErrorCode = 'no_key' | 'not_found' | 'bad_ticker' | 'rate_limited' | 'finnhub' | 'no_provider' | 'error'

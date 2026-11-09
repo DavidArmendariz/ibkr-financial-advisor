@@ -45,6 +45,12 @@ Built with Electron + React on the frontend and a Python FastAPI backend. The ap
 - A table below groups the ETFs by quadrant with both readings and how long each has been there
 - The readings are the app's own approximation of the RRG method, so they won't match StockCharts or TradingView exactly. Context only: no alerts
 
+**Fundamentals**
+- Look up a US ticker to see its P/E, P/S, EV/EBITDA, EV/FCF and P/B, each next to the median of its peers and its own 5 fiscal-year median, marked "cheaper" when at least 20% below. Also revenue and EPS growth, margins, ROE, debt to equity, and analyst ratings for this month and last
+- Figures and peers come from Finnhub, using the key saved for the calendar (IBKR's fundamentals need a separate data subscription). About 16 Finnhub calls per lookup, reused for an hour unless you refresh
+- News merges IBKR headlines (your subscribed providers, such as Dow Jones and Briefing.com analyst actions; open one to read it) with Finnhub company news
+- An optional AI summary (bull case, bear case, valuation, what to watch) sends only that stock's figures and headlines to your AI provider, and is saved per ticker. Not investment advice
+
 **Signals (SOXL real-time alerts)**
 - Streams 5-second real-time bars for SOXL and combines them into 1-minute bars (timeframe configurable), after warming up from historical data
 - Computes indicators incrementally on each closed bar: session VWAP (from 09:30 ET, or 04:00 ET through after-hours with pre-market), EMA 9 / 21, Bollinger Bands (20, 2σ), and relative volume
@@ -389,6 +395,7 @@ ibkr-financial-advisor/
     │   ├── useSignals.ts     # Signals WebSocket: status, live values, history, settings
     │   ├── useMacro.ts       # Polls /api/macro/state every 3 s while the Macro view is open
     │   ├── useRotation.ts    # Polls /api/rotation every 60 s while the Sector Rotation view is open
+    │   ├── useFundamentals.ts # One stock's lookup and AI summary; remembers the last ticker
     │   ├── useSignalHistory.ts # Pages through saved signals, polling for new ones every 15 s while open
     │   └── useOpenOrders.ts  # Polls /api/orders/open every 15 s while the Orders view is open
     ├── components/
@@ -402,7 +409,8 @@ ibkr-financial-advisor/
     │   ├── chat/             # Session list, chat window, markdown + chart rendering, risk profile select
     │   ├── signals/          # Status cards, live values, signal table, settings form
     │   ├── macro/            # Section layout, indicator and index cards, sparkline
-    │   └── rotation/         # Relative Rotation Graph (SVG) and quadrant table
+    │   ├── rotation/         # Relative Rotation Graph (SVG) and quadrant table
+    │   └── fundamentals/     # Valuation table, quality, ratings, news, AI summary
     └── pages/
         ├── Dashboard.tsx
         ├── Orders.tsx
@@ -447,6 +455,9 @@ ibkr-financial-advisor/
 | `GET` | `/api/macro/state` | `connected` and one entry per macro indicator: `value`, `previous_close`, `change`, `change_pct` / `change_bp`, `freshness` (`live` / `delayed` / `closed`, or `daily` for the TRM), `contract`, `contract_month`, `valid_from` / `valid_to` (TRM), `updated_at`, `stale`, `error`, `sparkline`. Also `sentiment`: `score`, `band`, `as_of`, `components`, `history`, `stale` |
 | `GET` | `/api/rotation` | `connected`, `stale`, `last_session`, `benchmark` (SPY and its `error`), `lookback`, `settings`, and per ETF `symbol`, `name`, `error`, and `weekly` / `daily`, each with its last 20 `points` (`time`, `ratio`, `momentum`, `quadrant`) and `periods` in the current quadrant |
 | `PUT` | `/api/rotation/settings` | Update `timeframe` (`weekly` / `daily`) or `tail` (3 to 20) |
+| `GET` | `/api/fundamentals/:ticker` | One stock's profile, `multiples` (value, peer and 5-year medians, cheaper flags), `quality`, `peers`, `ratings`, merged `news`, `news_notes`, `fetched_at`, and any saved `analysis`; `?refresh=true` bypasses the hour cache. Errors carry a `code` (`no_key`, `not_found`, `bad_ticker`, `rate_limited`, …) |
+| `POST` | `/api/fundamentals/:ticker/analysis` | Write and save the AI summary from that stock's public figures and headlines |
+| `GET` | `/api/fundamentals/article/:provider/:article_id` | An IBKR news article as plain text |
 
 ---
 

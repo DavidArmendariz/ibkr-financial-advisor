@@ -10,14 +10,16 @@ import type {
   ConnectionStatus,
   GammaSettings,
   GammaState,
+  FundamentalsLookup,
+  FundamentalsWriteUp,
   GlobalMarketsState,
   MacroState,
   PlannerSettings,
+  OHLCBar,
   PlannerState,
   RotationSettings,
   RotationState,
   TradePlan,
-  OHLCBar,
   OpenOrdersState,
   FilledOrdersState,
   Position,
@@ -179,6 +181,19 @@ export const getRotation = () => http.get<RotationState>('/api/rotation').then((
 
 export const updateRotationSettings = (values: Partial<RotationSettings>) =>
   http.put<RotationSettings>('/api/rotation/settings', values).then((r) => r.data)
+
+export const getFundamentals = (ticker: string, refresh = false) =>
+  http
+    .get<FundamentalsLookup>(`/api/fundamentals/${encodeURIComponent(ticker)}`, { params: refresh ? { refresh: true } : {}, timeout: 90_000 })
+    .then((r) => r.data)
+
+export const writeFundamentalsAnalysis = (ticker: string) =>
+  http.post<FundamentalsWriteUp>(`/api/fundamentals/${encodeURIComponent(ticker)}/analysis`, null, { timeout: 120_000 }).then((r) => r.data)
+
+export const getNewsArticle = (provider: string, articleId: string) =>
+  http
+    .get<{ text: string | null }>(`/api/fundamentals/article/${encodeURIComponent(provider)}/${encodeURIComponent(articleId)}`, { timeout: 30_000 })
+    .then((r) => r.data)
 
 export const getPlanner = () => http.get<PlannerState>('/api/planner', { timeout: 60_000 }).then((r) => r.data)
 

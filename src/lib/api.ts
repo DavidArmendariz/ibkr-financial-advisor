@@ -8,6 +8,7 @@ import type {
   ChatMessage,
   ChatThread,
   ConnectionStatus,
+  MoneySupplyState,
   GammaSettings,
   GammaState,
   FundamentalsLookup,
@@ -86,6 +87,10 @@ export const getFilledOrders = () =>
 
 export const getOpenOrders = () =>
   http.get<OpenOrdersState>('/api/orders/open').then((r) => r.data)
+
+// ── M2 Money Supply ──────────────────────────────────────────────────────────
+
+export const getMoneySupply = () => http.get<MoneySupplyState>('/api/money-supply').then((r) => r.data)
 
 // ── Calendar ─────────────────────────────────────────────────────────────────
 

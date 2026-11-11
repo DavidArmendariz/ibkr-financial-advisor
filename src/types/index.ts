@@ -112,7 +112,7 @@ export interface OpenOrdersState {
   orders: OpenOrder[]
 }
 
-export type AppTab = 'dashboard' | 'orders' | 'chat' | 'signals' | 'signal-history' | 'trade-planner' | 'gamma' | 'macro' | 'global-markets' | 'sector-rotation' | 'fundamentals' | 'calendar' | 'settings'
+export type AppTab = 'dashboard' | 'orders' | 'chat' | 'signals' | 'signal-history' | 'trade-planner' | 'gamma' | 'macro' | 'global-markets' | 'sector-rotation' | 'fundamentals' | 'money-supply' | 'calendar' | 'settings'
 
 export type RiskProfile = 'conservative' | 'moderate' | 'aggressive'
 
@@ -418,6 +418,39 @@ export interface CalendarState {
   events: CalendarEventRecord[]
   sources: CalendarSource[]
   settings: CalendarSettings
+}
+
+// ── M2 Money Supply ──────────────────────────────────────────────────────────
+
+export type MoneySupplyStatus = 'ok' | 'loading' | 'no_key' | 'error'
+
+export type MoneySupplyRange = '5y' | '10y' | '25y' | 'all'
+
+export interface MoneySupplyObservation {
+  month: string // YYYY-MM-01
+  value: number // billions of dollars
+  yoy_pct: number | null
+}
+
+export interface MoneySupplyLatest {
+  month: string
+  value: number
+  mom_change: number | null
+  mom_pct: number | null
+  yoy_change: number | null
+  yoy_pct: number | null
+}
+
+export interface MoneySupplyState {
+  status: MoneySupplyStatus
+  series: string
+  units: string
+  latest: MoneySupplyLatest | null
+  observations: MoneySupplyObservation[]
+  last_updated: string | null
+  next_release: string | null // YYYY-MM-DD
+  fetched_at: string | null
+  error: string | null
 }
 
 // ── Asia & Europe ────────────────────────────────────────────────────────────

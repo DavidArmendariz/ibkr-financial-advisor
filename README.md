@@ -90,10 +90,16 @@ Built with Electron + React on the frontend and a Python FastAPI backend. The ap
 - Futures roll to the next month on their own, following IBKR's continuous contract
 - Works without futures subscriptions using IBKR's free delayed data, labelled as delayed
 
+**M2 Money Supply**
+- The US M2 money stock (FRED series M2SL: monthly, seasonally adjusted) with the latest month, its change on the month and on the year, when FRED last updated it, and the next H.6 release date
+- Two charts over the same months: the M2 level, and year-over-year growth with contractions in a different colour. Range of 5, 10 or 25 years or all data since 1959, remembered per viewer
+- An explanation on the page of what M2 includes, why its growth matters for inflation, liquidity and valuations, how to read the charts, and its limits. Context only: no alerts
+- Uses the FRED key saved for the calendar; without one the view says so and links to **Settings**. Refreshed every 6 hours and saved locally, so it still shows offline. Needs no IBKR connection
+
 **Calendar**
 - The next 30 days of FOMC decisions, CPI, PPI, jobs, GDP, PCE and retail sales, plus earnings for a chip watchlist you can edit in **Settings**. Times are in ET
 - A notification at 18:00 ET the evening before each high-importance event and watchlist earnings date, and 30 minutes before high-importance events with a known time. Each alert fires once, and each can be switched off
-- Economic dates come from FRED and the Federal Reserve's site, and earnings from Finnhub. FRED and Finnhub need free API keys, added in **Settings**; each missing key only hides that source. Those services receive your key and public date or symbol requests, never account data
+- Economic dates come from FRED and the Federal Reserve's site, and earnings from Finnhub. FRED and Finnhub need free API keys, added in **Settings**; each missing key only hides that source. The FRED key also powers **M2 Money Supply**. Those services receive your key and public date or symbol requests, never account data
 - Events are saved locally, so the list still shows if a source is down. The calendar never changes signals
 
 **TWS Connection Guard**
@@ -402,6 +408,7 @@ ibkr-financial-advisor/
     │   ├── useSignals.ts     # Signals WebSocket: status, live values, history, settings
     │   ├── useMacro.ts       # Polls /api/macro/state every 3 s while the Macro view is open
     │   ├── useRotation.ts    # Polls /api/rotation every 60 s while the Sector Rotation view is open
+    │   ├── useMoneySupply.ts # Polls /api/money-supply every 60 s while the M2 view is open; remembers the chart range
     │   ├── useFundamentals.ts # One stock's lookup and AI summary; remembers the last ticker
     │   ├── useSignalHistory.ts # Pages through saved signals, polling for new ones every 15 s while open
     │   └── useOpenOrders.ts  # Polls /api/orders/open every 15 s while the Orders view is open
@@ -417,6 +424,7 @@ ibkr-financial-advisor/
     │   ├── signals/          # Status cards, live values, signal table, settings form
     │   ├── macro/            # Section layout, indicator and index cards, sparkline
     │   ├── rotation/         # Relative Rotation Graph (SVG) and quadrant table
+    │   ├── money-supply/     # Latest M2 reading, level and YoY charts, explanation
     │   └── fundamentals/     # Valuation table, quality, ratings, news, AI summary
     └── pages/
         ├── Dashboard.tsx
@@ -462,6 +470,7 @@ ibkr-financial-advisor/
 | `GET` | `/api/macro/state` | `connected` and one entry per macro indicator: `value`, `previous_close`, `change`, `change_pct` / `change_bp`, `freshness` (`live` / `delayed` / `closed`, or `daily` for the TRM), `contract`, `contract_month`, `valid_from` / `valid_to` (TRM), `updated_at`, `stale`, `error`, `sparkline`. Also `sentiment`: `score`, `band`, `as_of`, `components`, `history`, `stale` |
 | `GET` | `/api/rotation` | `connected`, `stale`, `last_session`, `benchmark` (SPY and its `error`), `lookback`, `settings`, and per ETF `symbol`, `name`, `error`, and `weekly` / `daily`, each with its last 20 `points` (`time`, `ratio`, `momentum`, `quadrant`) and `periods` in the current quadrant |
 | `PUT` | `/api/rotation/settings` | Update `timeframe` (`weekly` / `daily`) or `tail` (3 to 20) |
+| `GET` | `/api/money-supply` | `status` (`ok` / `loading` / `no_key` / `error`), `series`, `units`, `latest` (`month`, `value`, `mom_change`, `mom_pct`, `yoy_change`, `yoy_pct`), every `observations` row (`month`, `value` in billions, `yoy_pct`), `last_updated`, `next_release`, `fetched_at`, `error` |
 | `GET` | `/api/fundamentals/:ticker` | One stock's profile, `multiples` (value, peer and 5-year medians, cheaper flags), `quality`, `peers`, `ratings`, merged `news`, `news_notes`, `fetched_at`, and any saved `analysis`; `?refresh=true` bypasses the hour cache. Errors carry a `code` (`no_key`, `not_found`, `bad_ticker`, `rate_limited`, …) |
 | `POST` | `/api/fundamentals/:ticker/analysis` | Write and save the AI summary from that stock's public figures and headlines |
 | `GET` | `/api/fundamentals/article/:provider/:article_id` | An IBKR news article as plain text |

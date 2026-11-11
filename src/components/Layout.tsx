@@ -11,6 +11,7 @@ import { GammaPage } from '@/pages/Gamma'
 import { FundamentalsPage } from '@/pages/Fundamentals'
 import { GlobalMarketsPage } from '@/pages/GlobalMarkets'
 import { MacroPage } from '@/pages/Macro'
+import { MoneySupplyPage } from '@/pages/MoneySupply'
 import { SectorRotationPage } from '@/pages/SectorRotation'
 import { TradePlannerPage } from '@/pages/TradePlanner'
 import { CalendarPage } from '@/pages/Calendar'
@@ -102,6 +103,7 @@ export function Layout({ activeTab, onTabChange, connectionStatus, onDisconnect 
           {activeTab === 'global-markets' && <GlobalMarketsPage />}
           {activeTab === 'sector-rotation' && <SectorRotationPage />}
           {activeTab === 'fundamentals' && <FundamentalsPage onOpenSettings={() => onTabChange('settings')} />}
+          {activeTab === 'money-supply' && <MoneySupplyPage onOpenSettings={() => onTabChange('settings')} />}
           {activeTab === 'calendar' && <CalendarPage onOpenSettings={() => onTabChange('settings')} />}
           {activeTab === 'settings' && <SettingsPage />}
         </main>

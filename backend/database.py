@@ -134,6 +134,20 @@ class CalendarAlert(SQLModel, table=True):
     sent_at: datetime
 
 
+class MoneySupplyObservation(SQLModel, table=True):
+    series_id: str = Field(primary_key=True, max_length=20)
+    month: str = Field(primary_key=True, max_length=10)  # YYYY-MM-01
+    value: float
+
+
+class MoneySupplyMeta(SQLModel, table=True):
+    series_id: str = Field(primary_key=True, max_length=20)
+    last_updated: Optional[str] = Field(default=None, max_length=40)  # as FRED reports it
+    next_release: Optional[str] = Field(default=None, max_length=10)
+    fetched_at: Optional[datetime] = None
+    error: Optional[str] = Field(default=None, max_length=200)
+
+
 class OptionOpenInterest(SQLModel, table=True):
     # IBKR only reports open interest while the market is open; the last value
     # is kept so exposure can still be computed after hours and on weekends.

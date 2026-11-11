@@ -88,7 +88,7 @@ export function CalendarSettingsCard() {
           <CalendarDays className="h-4 w-4" />
           Calendar
         </CardTitle>
-        <CardDescription>Keys stay in the backend. FRED and Finnhub receive only your key and public date or symbol requests.</CardDescription>
+        <CardDescription>Keys stay in the backend. FRED and Finnhub receive only your key and public date, series or symbol requests. The FRED key also powers M2 Money Supply.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={save} className="flex flex-col gap-3">
